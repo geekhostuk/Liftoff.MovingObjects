@@ -172,27 +172,25 @@ public sealed class Plugin : BaseUnityPlugin
 
     private static void OnDroneResetDone()
     {
-        EnsurePlayersInjected();
-        foreach (var p in FindObjectsOfType<AnimationPlayer>()) p.enabled = true;
-        foreach (var p in FindObjectsOfType<PhysicsPlayer>()) p.enabled = true;
-    }
-
-    private const string PlayersInjectedMarker = "MO_PlayersInjected";
-
-    private static void EnsurePlayersInjected()
-    {
-        if (GameObject.Find(PlayersInjectedMarker) != null)
-            return;
+        // Run injection on every drone-reset-done. The Add* / GroupFlags helpers
+        // below are individually idempotent (each checks for the component or
+        // group GameObject it would create and bails out if it's already there),
+        // so this is cheap on subsequent resets and only does real work when the
+        // track has changed and new flag GameObjects are present.
         var flags = EditorUtils.FindAllFlags();
         GroupFlags(flags);
         InjectPlayers(flags);
-        new GameObject(PlayersInjectedMarker);
+
+        foreach (var p in FindObjectsOfType<AnimationPlayer>()) p.enabled = true;
+        foreach (var p in FindObjectsOfType<PhysicsPlayer>()) p.enabled = true;
     }
 
     private static void AddPhysics(TrackBlueprint blueprint, Component flag, bool waitForTrigger)
     {
         if (!string.IsNullOrEmpty(blueprint.mo_groupId))
             return; // TODO: Fix group physics
+        if (flag.gameObject.GetComponent<PhysicsPlayer>() != null)
+            return;
 
         Log.LogInfo($"Item with physics detected: {blueprint}, {flag}");
 
@@ -210,6 +208,9 @@ public sealed class Plugin : BaseUnityPlugin
 
     private static void AddAnimation(TrackBlueprint blueprint, Component flag, bool waitForTrigger)
     {
+        if (flag.gameObject.GetComponent<AnimationPlayer>() != null)
+            return;
+
         Log.LogInfo($"Item with animation detected: {blueprint}, {flag}");
 
         var player = flag.gameObject.AddComponent<AnimationPlayer>();
@@ -221,19 +222,20 @@ public sealed class Plugin : BaseUnityPlugin
     private static bool AddTrigger(TrackBlueprint blueprint, Component flag)
     {
         var options = blueprint.mo_triggerOptions;
-        Log.LogInfo($"Item with trigger detected: {options.triggerTarget}/{options.triggerName}, {flag}");
 
-        var waitForTrigger = false;
-        if (!string.IsNullOrEmpty(options.triggerName))
+        var waitForTrigger = !string.IsNullOrEmpty(options.triggerName);
+
+        var existingName = flag.gameObject.GetComponent<TriggerName>();
+        if (waitForTrigger && existingName == null)
         {
             flag.gameObject.AddComponent<TriggerName>().triggerName = options.triggerName;
-            waitForTrigger = true;
+            Log.LogInfo($"Item with trigger detected: {options.triggerTarget}/{options.triggerName}, {flag}");
         }
 
         if (!string.IsNullOrEmpty(options.triggerTarget))
         {
             var checkpointTrigger = flag.gameObject.transform.Find("CheckpointTrigger");
-            if (checkpointTrigger != null)
+            if (checkpointTrigger != null && checkpointTrigger.gameObject.GetComponent<TriggerBehavior>() == null)
             {
                 var trigger = checkpointTrigger.gameObject.AddComponent<TriggerBehavior>();
                 trigger.triggerTarget = options.triggerTarget;
@@ -293,7 +295,15 @@ public sealed class Plugin : BaseUnityPlugin
 
             var rootObj = rootObjects[groupId];
 
-            var groupObject = new GameObject("MO_Group_" + groupId);
+            var groupName = "MO_Group_" + groupId;
+            // Idempotency: if this group GameObject already exists under the
+            // root, the flags are already parented and there is nothing to do.
+            // We can't use GameObject.Find here because group names recur across
+            // levels; check the current root's children directly.
+            if (rootObj.transform.Find(groupName) != null)
+                continue;
+
+            var groupObject = new GameObject(groupName);
             groupObject.transform.parent = rootObj.transform;
             groupObject.transform.position = rootObj.transform.position;
             groupObject.transform.rotation = rootObj.transform.rotation;
