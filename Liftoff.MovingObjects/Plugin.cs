@@ -1,4 +1,3 @@
-﻿using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using BepInEx;
@@ -6,9 +5,7 @@ using BepInEx.Logging;
 using HarmonyLib;
 using Liftoff.MovingObjects.Player;
 using Liftoff.MovingObjects.Utils;
-using Liftoff.Multiplayer;
 using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.UIElements;
 
 namespace Liftoff.MovingObjects;
@@ -27,34 +24,55 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void Awake()
     {
-        Log.LogWarning($"Modification {PluginInfo.PLUGIN_NAME} {PluginInfo.PLUGIN_VERSION} loaded");
-        _assetBundle = AssetBundle.LoadFromMemory(UI.LiftoffUI);
-        _editorAssets = new AnimationEditorWindow.Assets
-        {
-            VisualTreeAsset =
-                _assetBundle.LoadAsset<VisualTreeAsset>("Assets/Liftoff.MovingObject/AnimationEditorWindow.uxml"),
-            AnimationTemplateAsset =
-                _assetBundle.LoadAsset<VisualTreeAsset>("Assets/Liftoff.MovingObject/AnimationStepTemplate.uxml"),
-            PanelSettings =
-                _assetBundle.LoadAsset<PanelSettings>(
-                    "Assets/Liftoff.MovingObject/AnimationEditorWindowPanelSettings.asset")
-        };
+        Log.LogInfo($"{PluginInfo.PLUGIN_NAME} {PluginInfo.PLUGIN_VERSION} loaded");
 
-        _placementAssets = new PlacementUtilsWindow.Assets
+        try { DontDestroyOnLoad(gameObject); }
+        catch (System.Exception ex) { Log.LogWarning($"DontDestroyOnLoad failed: {ex.Message}"); }
+
+        try { _harmony = Harmony.CreateAndPatchAll(typeof(Plugin)); }
+        catch (System.Exception ex) { Log.LogError($"Harmony.CreateAndPatchAll failed: {ex}"); }
+
+        try
         {
-            VisualTreeAsset =
-                _assetBundle.LoadAsset<VisualTreeAsset>("Assets/Liftoff.MovingObject/UtilsWindow.uxml"),
-            PanelSettings =
-                _assetBundle.LoadAsset<PanelSettings>(
+            _assetBundle = AssetBundle.LoadFromMemory(UI.LiftoffUI);
+            if (_assetBundle == null)
+            {
+                Log.LogError("Failed to load embedded UI asset bundle");
+                return;
+            }
+
+            _editorAssets = new AnimationEditorWindow.Assets
+            {
+                VisualTreeAsset = _assetBundle.LoadAsset<VisualTreeAsset>(
+                    "Assets/Liftoff.MovingObject/AnimationEditorWindow.uxml"),
+                AnimationTemplateAsset = _assetBundle.LoadAsset<VisualTreeAsset>(
+                    "Assets/Liftoff.MovingObject/AnimationStepTemplate.uxml"),
+                PanelSettings = _assetBundle.LoadAsset<PanelSettings>(
+                    "Assets/Liftoff.MovingObject/AnimationEditorWindowPanelSettings.asset")
+            };
+
+            _placementAssets = new PlacementUtilsWindow.Assets
+            {
+                VisualTreeAsset = _assetBundle.LoadAsset<VisualTreeAsset>(
+                    "Assets/Liftoff.MovingObject/UtilsWindow.uxml"),
+                PanelSettings = _assetBundle.LoadAsset<PanelSettings>(
                     "Assets/Liftoff.MovingObject/UtilsWindowPanelSettings.asset")
-        };
-        _harmony = Harmony.CreateAndPatchAll(typeof(Plugin));
+            };
+        }
+        catch (System.Exception ex)
+        {
+            Log.LogError($"Asset bundle setup failed: {ex}");
+        }
     }
 
     private void OnDestroy()
     {
-        _assetBundle.Unload(true);
-        _harmony?.UnpatchSelf();
+        // Intentionally NOT calling _harmony.UnpatchSelf() / _assetBundle.Unload() here.
+        // The current game build destroys this MonoBehaviour very early (during the
+        // bootstrap-scene unload, well before flight). Tearing down the Harmony patches
+        // and asset bundle at that point silently disabled the entire mod for the rest
+        // of the session. The patches are static and continue functioning without us;
+        // the asset bundle is referenced by editor windows attached on demand.
     }
 
     [HarmonyPostfix]
@@ -74,27 +92,15 @@ public sealed class Plugin : BaseUnityPlugin
         var placementUtilsObj = new GameObject("MO_PlacementUtils");
         placementUtilsObj.transform.SetParent(trackBuilderPanel.gameObject.transform);
 
-
         var placementUtilsWindow = placementUtilsObj.AddComponent<PlacementUtilsWindow>();
         placementUtilsWindow.assets = _placementAssets;
     }
 
-    [HarmonyPrefix]
-    [HarmonyPatch(typeof(PopupShareContent), "ShareItem", typeof(string), typeof(Sprite))]
-    private static void ShareItem(ref Sprite __1)
-    {
-        var overwritePreview = Path.Combine(Paths.GameRootPath, "preview.png");
-        if (!File.Exists(overwritePreview))
-        {
-            Log.LogInfo($"Preview overwrite not found {overwritePreview}, skip");
-            return;
-        }
-
-        var preview = new Texture2D(2, 2);
-        preview.LoadImage(File.ReadAllBytes(overwritePreview));
-
-        __1 = Sprite.Create(preview,new Rect(0, 0, preview.width, preview.height), new Vector2(0.5f, 0.5f));
-    }
+    // PopupShareContent.ShareItem patch removed: signature changed in the current
+    // game (now takes a third parameter), and HarmonyX throws on a missing target,
+    // which would abort CreateAndPatchAll and prevent every other patch attaching.
+    // The feature (overriding the Workshop preview image with a local preview.png)
+    // can be re-enabled once the new third parameter type is referenceable.
 
     [HarmonyPostfix]
     [HarmonyPatch(typeof(TrackEditorEditWindow), "AtLeastOneItemAvailable", typeof(TrackItemCategory))]
@@ -132,74 +138,63 @@ public sealed class Plugin : BaseUnityPlugin
             Quaternion.Euler(GridUtils.SmartRound(rot));
     }
 
+    // Drone-reset hooks were originally a Harmony patch on FlightManager.ResetDroneRoutine.
+    // That coroutine still exists in the current Assembly-CSharp.dll but is dead code: the
+    // refactored flight manager drives reset through Reset() / IDroneResetHandle and raises
+    // the parameterless Action events below instead. We subscribe to those events from a
+    // postfix on FlightManager.Start, which is reliably called once per flight session.
+    private static FlightManager _hookedFlightManager;
+
     [HarmonyPostfix]
-    [HarmonyPatch(typeof(FlightManager), "ResetDroneRoutine")]
-    private static IEnumerator ResetDroneRoutine(IEnumerator __result)
+    [HarmonyPatch(typeof(FlightManager), "Start")]
+    private static void OnFlightManagerStart(FlightManager __instance)
     {
-        Log.LogInfo("Drone reset start");
-
-        var animations = FindObjectsOfType<AnimationPlayer>();
-        var physics = FindObjectsOfType<PhysicsPlayer>();
-
-        foreach (var player in animations)
-        {
-            player.enabled = false;
-            player.Restart();
-        }
-
-        foreach (var player in physics)
-        {
-            player.enabled = false;
-            player.Restart();
-        }
-
-        while (__result.MoveNext())
-            yield return __result.Current;
-
-        Log.LogInfo("Drone reset done");
-        foreach (var player in animations)
-            player.enabled = true;
-        foreach (var player in physics)
-            player.enabled = true;
+        if (_hookedFlightManager == __instance)
+            return;
+        _hookedFlightManager = __instance;
+        __instance.onDroneResetStart += OnDroneResetStart;
+        __instance.onDroneResetDone += OnDroneResetDone;
     }
 
-    [HarmonyPrefix]
-    [HarmonyPatch(typeof(LevelInitSequence), "InitializeLevel", typeof(Level))]
-    private static void OnInitializeLevel(LevelInitSequence __instance, Level __0)
+    private static void OnDroneResetStart()
     {
-        void Callback()
+        foreach (var p in FindObjectsOfType<AnimationPlayer>())
         {
-            if (__0.LevelFlags == LevelFlags.TrackEdit)
-                OnGameEditorInitialized();
-            else
-                OnGameModeInitialized();
-            __instance.onGameModeInitialized -= Callback;
+            p.enabled = false;
+            p.Restart();
         }
-
-        __instance.onGameModeInitialized += Callback;
+        foreach (var p in FindObjectsOfType<PhysicsPlayer>())
+        {
+            p.enabled = false;
+            p.Restart();
+        }
     }
 
-    /*
-    [HarmonyPostfix]
-    [HarmonyPatch(typeof(MultiplayerGameSetupPanelRoomSettings), "FillMaxNrOfPlayersDropdown")]
-    private static void FillMaxNrOfPlayersDropdown(MultiplayerGameSetupPanelRoomSettings __instance)
+    private static void OnDroneResetDone()
     {
-        
-        var list = ReflectionUtils.GetPrivateFieldValue<LiftoffDropdown>(__instance, "dropdownNrOfPlayers");
-
-        var newOptions = new List<Dropdown.OptionData>();
-        for (var i = 9; i <= 64; i++)
-            newOptions.Add(new LiftoffDropdown.LiftoffOptionData($"{i} players [MOD]", null, i));
-        list.AddOptions(newOptions);
+        EnsurePlayersInjected();
+        foreach (var p in FindObjectsOfType<AnimationPlayer>()) p.enabled = true;
+        foreach (var p in FindObjectsOfType<PhysicsPlayer>()) p.enabled = true;
     }
-    */
+
+    private const string PlayersInjectedMarker = "MO_PlayersInjected";
+
+    private static void EnsurePlayersInjected()
+    {
+        if (GameObject.Find(PlayersInjectedMarker) != null)
+            return;
+        var flags = EditorUtils.FindAllFlags();
+        GroupFlags(flags);
+        InjectPlayers(flags);
+        new GameObject(PlayersInjectedMarker);
+    }
 
     private static void AddPhysics(TrackBlueprint blueprint, Component flag, bool waitForTrigger)
     {
         if (!string.IsNullOrEmpty(blueprint.mo_groupId))
             return; // TODO: Fix group physics
 
-        Log.LogWarning($"Item with physics detected: {blueprint}, {flag}");
+        Log.LogInfo($"Item with physics detected: {blueprint}, {flag}");
 
         var player = flag.gameObject.AddComponent<PhysicsPlayer>();
         player.options = blueprint.mo_animationOptions;
@@ -215,7 +210,7 @@ public sealed class Plugin : BaseUnityPlugin
 
     private static void AddAnimation(TrackBlueprint blueprint, Component flag, bool waitForTrigger)
     {
-        Log.LogWarning($"Item with animation detected: {blueprint}, {flag}");
+        Log.LogInfo($"Item with animation detected: {blueprint}, {flag}");
 
         var player = flag.gameObject.AddComponent<AnimationPlayer>();
         player.steps = blueprint.mo_animationSteps;
@@ -226,7 +221,7 @@ public sealed class Plugin : BaseUnityPlugin
     private static bool AddTrigger(TrackBlueprint blueprint, Component flag)
     {
         var options = blueprint.mo_triggerOptions;
-        Log.LogWarning($"Item with trigger detected: {options.triggerTarget}/{options.triggerName}, {flag}");
+        Log.LogInfo($"Item with trigger detected: {options.triggerTarget}/{options.triggerName}, {flag}");
 
         var waitForTrigger = false;
         if (!string.IsNullOrEmpty(options.triggerName))
@@ -291,7 +286,6 @@ public sealed class Plugin : BaseUnityPlugin
                 rootObjects[groupId] = flag.gameObject;
         }
 
-
         foreach (var (groupId, gameObjects) in groups)
         {
             if (gameObjects.Count == 1 || !rootObjects.ContainsKey(groupId))
@@ -307,20 +301,5 @@ public sealed class Plugin : BaseUnityPlugin
             foreach (var o in gameObjects)
                 o.transform.parent = groupObject.transform;
         }
-    }
-
-    private static void OnGameModeInitialized()
-    {
-        var flags = EditorUtils.FindAllFlags();
-
-        GroupFlags(flags);
-        InjectPlayers(flags);
-    }
-
-    private static void OnGameEditorInitialized()
-    {
-        var buggedEventSystem = GameObject.Find("EventSystem");
-        if (buggedEventSystem != null)
-            GameObject.Destroy(buggedEventSystem);
     }
 }
