@@ -101,7 +101,6 @@
   </ItemGroup>
   
   
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="copy $(TargetPath) D:\SteamLibrary\steamapps\common\Liftoff\BepInEx\scripts" />
-  </Target>
+  <!-- PostBuild copy removed; deploy step is handled outside the build. -->
+
 </Project>

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <RootNamespace>PatchHelper</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Mono.Cecil" Version="0.11.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\Liftoff.MovingObjects.Patcher\Patcher.cs" Link="Patcher.cs" />
+  </ItemGroup>
+</Project>
