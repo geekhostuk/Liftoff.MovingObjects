@@ -39,7 +39,11 @@ internal class PlacementUtilsWindow : MonoBehaviour
         Shared.Editor.OnItemSelected += OnItemSelected;
         Shared.Editor.OnItemCleared += OnItemCleared;
 
-        InvokeRepeating("UpdateStats", 1f, 1f);
+        // Statistics polling disabled: the per-second InvokeRepeating("UpdateStats")
+        // recomputed the object count and (more expensively) the triangle count across
+        // every object on the map each second, causing a visible stutter every second on
+        // large maps. The counting is now disabled; the labels just show "0". See UpdateStats.
+        // InvokeRepeating("UpdateStats", 1f, 1f);
     }
 
     private void OnDestroy()
@@ -85,9 +89,11 @@ internal class PlacementUtilsWindow : MonoBehaviour
         if (_root == null)
             return;
 
-        var objects = EditorUtils.FindAllFlags().Where(c => c.gameObject.transform.parent?.name?.EndsWith("_DragParent") != true).ToList();
-        _root.Q<Label>("object-count").text = objects.Count.ToString();
-        _root.Q<Label>("triangle-count").text = objects.SelectMany(c => c.gameObject.GetComponentsInChildren<MeshFilter>()).Select(f => f.sharedMesh.triangles.Length / 3).Sum().ToString();
+        // Counting disabled (see Awake): the previous implementation walked every flag on
+        // the map and summed triangle counts across all child MeshFilters every second,
+        // which stuttered on large maps. We just zero the labels instead of counting.
+        _root.Q<Label>("object-count").text = "0";
+        _root.Q<Label>("triangle-count").text = "0";
     }
 
     private void OnEnable()
@@ -107,6 +113,10 @@ internal class PlacementUtilsWindow : MonoBehaviour
             .RegisterValueChangedCallback(evt => Shared.PlacementUtils.EnchantedEditor = evt.newValue);
 
         RefreshGui();
+
+        // Counting is disabled, but call once so the stat labels read "0" instead of
+        // whatever placeholder text is baked into the UI asset bundle.
+        UpdateStats();
     }
 
     private void RefreshGui()

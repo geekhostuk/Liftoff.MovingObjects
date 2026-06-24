@@ -32,6 +32,7 @@ If you're looking for the original project, the commit history of new-feature wo
 ### Known issues
 
 - **Workshop preview overwrite (`PopupShareContent.ShareItem`) is currently disabled.** The game's `ShareItem` method gained a third parameter that uses an obfuscated type, so the original 2-arg Harmony patch could not bind. HarmonyX throws on a missing target, which previously aborted *all* of the mod's patches. The patch is removed until the new third parameter type is referenceable; nothing else depends on it.
+- **Editor "Object count" / "Triangle count" always read `0`.** The placement-utils window (F2) used to refresh these stats once per second via `InvokeRepeating`, which re-scanned every object on the map and summed the triangle count across all child meshes each second — a visible stutter every second on large maps. That polling is now disabled and the labels are pinned to `0`. This only affects the two informational counters; placement, animation, physics, and triggers are unchanged.
 
 ### Why upstream 1.0.14 stopped working
 
