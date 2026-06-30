@@ -22,6 +22,11 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.1.1
+
+- **[Portal-style teleports](#portal-style-teleports)** — opt-in seamless teleports that carry the drone's momentum and orientation into the exit gate's frame, with an optional exit-speed override.
+- **[High-speed trigger reliability](#high-speed-trigger-reliability)** — continuous-collision watchdog plus swept-ray detection so triggers no longer get tunnelled through by a fast drone.
+
 ### What's verified working in v1.1.0
 
 - Object animation, physics, and triggers on community maps (e.g. *Honkey Kong*).
@@ -81,7 +86,7 @@ Triggers (teleports, animation/physics starts) previously **missed fast passes**
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.1.0.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.1.1.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`
