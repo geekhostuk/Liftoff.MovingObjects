@@ -129,6 +129,13 @@ lib/                               # populated by build.ps1, gitignored
 build.ps1                          # the build entry point
 ```
 
+## Roadmap
+
+Planned and proposed features live in [`ideas.md`](ideas.md) — a backlog grouped by system
+(animation, physics, triggers/teleports, editor QoL, infrastructure), each entry tagged with
+a status (`shipped` / `partial` / `open`) and effort estimate. It's the place to look before
+picking up new work or filing a feature request.
+
 ## Maps (sampler)
 
 * [MOD_PSHEK_FRPV_BANDO-NICE_1](https://steamcommunity.com/sharedfiles/filedetails/?id=3174317892)
