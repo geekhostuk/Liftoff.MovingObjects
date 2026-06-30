@@ -40,6 +40,9 @@ internal class AnimationEditorWindow : MonoBehaviour
 
     private UIDocument _uiDocument;
 
+    private Toggle _seamlessTeleportToggle;
+    private TextField _exitSpeedField;
+
     public Assets assets;
 
     private MO_TriggerOptions trigger
@@ -85,6 +88,7 @@ internal class AnimationEditorWindow : MonoBehaviour
         GuiUtils.ConvertToFloatField(_root.Q<TextField>("trigger-target-speed-max"),
             f => trigger.triggerMaxSpeed = f);
         _root.Q<Toggle>("trigger-teleport").RegisterValueChangedCallback(evt => trigger.triggerTeleport = evt.newValue);
+        EnsureTeleportControls();
 
         _root.Q<DropdownField>("type")
             .RegisterValueChangedCallback(evt =>
@@ -120,6 +124,34 @@ internal class AnimationEditorWindow : MonoBehaviour
         _root.Q<Button>("physics-play").clicked += OnPlayPhysicsClicked;
 
         RefreshGui();
+    }
+
+    // The compiled UI bundle predates the seamless-teleport options, so these two controls are
+    // created in code and appended to the trigger target section (so they inherit the same
+    // visibility as the teleport toggle).
+    //
+    // The UIDocument's visual tree can be rebuilt out from under us (e.g. pressing F1 to align a
+    // gate tears down and recreates it). On a rebuild the UXML-defined controls come back for free,
+    // but our code-added ones are dropped while the field references survive — pointing at the now
+    // detached old tree. So we can't guard on "field is non-null"; we guard on whether the control
+    // is actually attached to the *current* target section, recreating it otherwise. This stays
+    // idempotent (no duplicates) when called repeatedly against an unchanged tree.
+    private void EnsureTeleportControls()
+    {
+        var targetSection = _root.Q<VisualElement>("trigger-target-section");
+        if (targetSection == null)
+            return;
+
+        if (_seamlessTeleportToggle != null && _seamlessTeleportToggle.parent == targetSection)
+            return;
+
+        _seamlessTeleportToggle = new Toggle("Seamless teleport") { focusable = false };
+        _seamlessTeleportToggle.RegisterValueChangedCallback(evt => trigger.seamlessTeleport = evt.newValue);
+        targetSection.Add(_seamlessTeleportToggle);
+
+        _exitSpeedField = new TextField("Exit speed:") { maxLength = 16 };
+        GuiUtils.ConvertToFloatField(_exitSpeedField, f => trigger.exitSpeed = f);
+        targetSection.Add(_exitSpeedField);
     }
 
     private void OnPlayAnimationClicked()
@@ -185,6 +217,13 @@ internal class AnimationEditorWindow : MonoBehaviour
 
             _root.Q<TextField>("trigger-target-speed-min").value = GuiUtils.FloatToString(trigger.triggerMinSpeed);
             _root.Q<TextField>("trigger-target-speed-max").value = GuiUtils.FloatToString(trigger.triggerMaxSpeed);
+
+            // Re-add our code-created controls if a tree rebuild dropped them (see EnsureTeleportControls).
+            EnsureTeleportControls();
+            if (_seamlessTeleportToggle != null)
+                _seamlessTeleportToggle.SetValueWithoutNotify(trigger.seamlessTeleport);
+            if (_exitSpeedField != null)
+                _exitSpeedField.SetValueWithoutNotify(GuiUtils.FloatToString(trigger.exitSpeed));
         }
 
         var animationBox = _root.Q<GroupBox>("animation-box");

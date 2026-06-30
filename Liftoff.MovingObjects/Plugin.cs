@@ -183,6 +183,45 @@ public sealed class Plugin : BaseUnityPlugin
 
         foreach (var p in FindObjectsOfType<AnimationPlayer>()) p.enabled = true;
         foreach (var p in FindObjectsOfType<PhysicsPlayer>()) p.enabled = true;
+
+        EnableContinuousDroneCollision();
+    }
+
+    // Triggers (see TriggerBehavior) are detected via OnTriggerEnter, which only fires
+    // when the drone overlaps the trigger collider on some FixedUpdate step. A fast
+    // enough drone can tunnel completely through the volume between two physics steps
+    // and the trigger (e.g. teleport) never fires. Continuous (speculative) collision
+    // detection makes the rigidbody sweep its path each step, so it can no longer pass
+    // through a trigger unseen.
+    //
+    // We can't just set collisionDetectionMode here: the game rebuilds/reconfigures the
+    // drone rigidbody around reset time and resets the mode back to Discrete, racing
+    // against (and usually beating) a one-shot set. So we attach a DroneContinuousCollision
+    // watchdog that re-asserts the mode every FixedUpdate. Attaching is idempotent (one
+    // component per drone object). Drones are identified the same way TriggerBehavior does:
+    // by the "Drone" layer plus an attached rigidbody.
+    private static void EnableContinuousDroneCollision()
+    {
+        var droneLayer = LayerMask.NameToLayer("Drone");
+        if (droneLayer < 0)
+            return;
+
+        var seen = new HashSet<Rigidbody>();
+        foreach (var collider in FindObjectsOfType<Collider>())
+        {
+            if (collider.gameObject.layer != droneLayer)
+                continue;
+
+            var body = collider.attachedRigidbody;
+            if (body == null || !seen.Add(body))
+                continue;
+
+            if (body.GetComponent<DroneContinuousCollision>() != null)
+                continue;
+
+            body.gameObject.AddComponent<DroneContinuousCollision>();
+            Log.LogDebug($"Attached continuous collision watchdog to drone rigidbody '{body.name}'");
+        }
     }
 
     private static void AddPhysics(TrackBlueprint blueprint, Component flag, bool waitForTrigger)
@@ -244,6 +283,8 @@ public sealed class Plugin : BaseUnityPlugin
                 if (options.triggerMaxSpeed > 0)
                     trigger.triggerMaxSpeed = options.triggerMaxSpeed;
                 trigger.triggerTeleport = options.triggerTeleport;
+                trigger.seamlessTeleport = options.seamlessTeleport;
+                trigger.exitSpeed = options.exitSpeed;
             }
         }
 
