@@ -61,6 +61,21 @@ Allow placing objects from the Blueprint map on any map.
 
 ![Blueprint objects demo](images/blueprint.png)
 
+### Portal-style teleports
+
+Teleport triggers can now carry your momentum through the gate, *Portal*-style, instead of dropping you out with your old world-space velocity (which left you exiting sideways). With **Seamless teleport** enabled, the drone's entry velocity and orientation are re-expressed in the exit marker's frame:
+
+- Fly straight through → exit straight along the exit gate's forward.
+- Enter at an angle → exit deflected by the same angle, carrying your speed.
+
+An optional **Exit speed** (km/h) overrides the exit magnitude while keeping the computed direction: `0` preserves your entry speed (true momentum), `> 0` turns the portal into a launch pad or a brake gate.
+
+**Authoring:** the exit marker is any object given a trigger `Name` — rotate it to aim the exit. The entrance is a checkpoint with trigger `Target` + `Teleport` + `Seamless teleport` (plus an optional `Exit speed`). It's opt-in and defaults off, so existing maps are unaffected.
+
+### High-speed trigger reliability
+
+Triggers (teleports, animation/physics starts) previously **missed fast passes** — Unity's `OnTriggerEnter` only fires when the drone overlaps a collider on a physics step, so a fast drone could tunnel straight through. The mod now adds a continuous-collision watchdog on the drone plus swept-ray path detection against trigger colliders, so triggers fire reliably at any speed.
+
 ## Install
 
 If you only want to play modded maps, this is all you need.
