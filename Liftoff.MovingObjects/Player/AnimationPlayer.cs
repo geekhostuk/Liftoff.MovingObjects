@@ -108,6 +108,12 @@ internal sealed class AnimationPlayer : MonoBehaviour
         if (_animationCoroutine != null)
             StopCoroutine(_animationCoroutine);
 
+        // Snap the transform directly, not just the rigidbody. Setting position/rotation on a
+        // kinematic Rigidbody is deferred to the next physics step, so transform.position would
+        // still read the pre-reset (mid-animation) value this frame. The restarted loop samples
+        // transform.position as its lerp start (see MoveObject), so without this immediate snap a
+        // reset makes objects glide back from wherever they were instead of starting from the top.
+        transform.SetPositionAndRotation(_initPosition, _initRotation);
         _rigidBody.position = _initPosition;
         _rigidBody.rotation = _initRotation;
     }
