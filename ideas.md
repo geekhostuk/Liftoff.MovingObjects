@@ -54,6 +54,27 @@ Features that reuse existing data or are pure runtime changes are the cheapest.
   depends on this.
 - **Files:** `DroneContinuousCollision.cs`, `TriggerBehavior.cs`, `Plugin.cs`.
 
+### ✅ Trigger action: (re)start vs. stop
+**Status: shipped** (branch `JMT02`, v1.1.2).
+
+- **What it does:** A trigger could previously only **(re)start** an animation, and any object
+  that was a trigger target began **dormant**. A new `triggerAction` option on animation
+  options — `Restart` (default) or `Stop` — lets a trigger instead **halt** a running
+  animation. `Stop`-mode objects **auto-play on load** and **freeze in place** when triggered
+  (a spinning hazard or moving platform that a gate switches off) — the mirror of the existing
+  "dormant to start on trigger" pattern.
+- **Freeze, not reset:** `Stop` halts the animation where it is via a new `StopAtCurrent()`;
+  it does not snap back to the start pose (a drone reset still restarts it from the top).
+- **Authoring:** in the animation editor, set **Trigger action** to `Stop`, give the object a
+  trigger `Name`, and target it from a checkpoint's trigger `Target`.
+- **Backward compatible:** defaults to `Restart` (enum value `0`), so existing maps are
+  unaffected.
+- **Files:** `Patcher.cs`, `AnimationPlayer.cs` (`Trigger` dispatch + `StopAtCurrent`),
+  `Plugin.cs` (`AddAnimation` decouples `waitForTrigger`), `AnimationEditorWindow.cs`
+  (code-added dropdown).
+- **Possible extensions (out of scope):** a `Toggle` action (start if stopped, stop if
+  running) and the same option for physics objects (`PhysicsPlayer.Trigger`).
+
 ---
 
 ## Animation
@@ -61,39 +82,6 @@ Features that reuse existing data or are pure runtime changes are the cheapest.
 Current behavior: keyframe steps interpolated with **linear `Lerp`** for both position and
 rotation (`AnimationPlayer.cs:75-77`); supports warmup delay, per-step delay, and N-repeat
 or infinite looping (`animationRepeats`, 0 = infinite). No easing, no procedural motion.
-
-### Trigger action: (re)start vs. stop  *(NEW, logic — requested)*
-- **Status: open.** **Effort: low.**
-- **What:** Today a trigger can only make an animation **(re)start**. An object that's a
-  trigger target always begins **dormant** and plays on trigger; there's no way to have an
-  animation that runs **from the start** and then **stops** when triggered. Add a
-  `triggerAction` option — `Restart` (current behavior) or `Stop` — so authors can choose
-  what a trigger does to the animation.
-- **Why:** Requested by a mapper. Enables the mirror of the existing pattern: instead of
-  "dormant → start on trigger", you get "running → stop on trigger" (e.g. a spinning hazard
-  or moving platform that a gate switches off). Reuses the trigger plumbing that already
-  exists; it's a small dispatch + option.
-- **How it changes the current behavior:**
-  - `Trigger()` currently always calls `Restart(true)` (`AnimationPlayer.cs:101-104`). It
-    becomes a switch on `triggerAction`: `Restart` keeps today's behavior; `Stop` halts the
-    running coroutine.
-  - Being a trigger target currently *forces* dormancy —
-    `waitForTrigger = !string.IsNullOrEmpty(options.triggerName)` (`Plugin.cs:265`) suppresses
-    the auto-start in `AnimationPlayer.Start` (`:30`). This must be **decoupled**: a `Stop`-mode
-    object still registers its `TriggerName` but auto-plays on load (`waitForTrigger = false`),
-    so the trigger has something running to stop. `Restart`-mode targets stay dormant as now.
-  - **Design nuance — freeze vs. reset:** the existing `Stop()` *resets the object to its
-    start pose* (`AnimationPlayer.cs:106-119`). "Stop on trigger" most likely means **freeze
-    in place**, so this needs a `StopAtCurrent()` that stops the coroutine *without* snapping
-    back. (A reset-on-stop variant could be added later.)
-  - **Backward compatible:** `triggerAction` defaults to `Restart` (enum value `0`), so every
-    existing map is unaffected.
-- **Possible extensions (out of scope):** a `Toggle` action (start if stopped, stop if
-  running) and the same option for physics objects (`PhysicsPlayer.Trigger`).
-- **Files:** `Patcher.cs` (`MO_AnimationOptions`: `triggerAction` int enum),
-  `AnimationEditorWindow.cs` (code-added dropdown, like the seamless-teleport controls),
-  `AnimationPlayer.cs` (`Trigger` dispatch + `StopAtCurrent`), `Plugin.cs`
-  (`AddAnimation`/`AddTrigger`: compute `waitForTrigger` from the action, pass it through).
 
 ### Easing / animation curves
 - **Status: open.** **Effort: low.**

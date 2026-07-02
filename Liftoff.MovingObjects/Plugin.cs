@@ -255,7 +255,11 @@ public sealed class Plugin : BaseUnityPlugin
         var player = flag.gameObject.AddComponent<AnimationPlayer>();
         player.steps = blueprint.mo_animationSteps;
         player.options = blueprint.mo_animationOptions;
-        player.waitForTrigger = waitForTrigger;
+
+        var action = (MO_TriggerAction)blueprint.mo_animationOptions.triggerAction;
+        // Stop-mode targets run from load so the trigger has something to halt; Restart-mode
+        // targets stay dormant until triggered.
+        player.waitForTrigger = waitForTrigger && action != MO_TriggerAction.Stop;
     }
 
     private static bool AddTrigger(TrackBlueprint blueprint, Component flag)

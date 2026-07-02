@@ -42,6 +42,7 @@ internal class AnimationEditorWindow : MonoBehaviour
 
     private Toggle _seamlessTeleportToggle;
     private TextField _exitSpeedField;
+    private DropdownField _triggerActionField;
 
     public Assets assets;
 
@@ -154,6 +155,25 @@ internal class AnimationEditorWindow : MonoBehaviour
         targetSection.Add(_exitSpeedField);
     }
 
+    // Same code-added pattern as EnsureTeleportControls, but for the Trigger action dropdown
+    // (Restart vs. Stop). It binds to MO_AnimationOptions and lives in the animation box, so it
+    // is created here and re-added in RefreshGui if a tree rebuild drops it.
+    private void EnsureAnimationActionControl()
+    {
+        var animationBox = _root.Q<GroupBox>("animation-box");
+        if (animationBox == null)
+            return;
+
+        if (_triggerActionField != null && _triggerActionField.parent == animationBox)
+            return;
+
+        _triggerActionField = new DropdownField("Trigger action:",
+            Enum.GetNames(typeof(MO_TriggerAction)).ToList(), 0) { focusable = false };
+        _triggerActionField.RegisterValueChangedCallback(evt =>
+            options.triggerAction = (int)Enum.Parse<MO_TriggerAction>(evt.newValue, true));
+        animationBox.Add(_triggerActionField);
+    }
+
     private void OnPlayAnimationClicked()
     {
         if (_tempAnimationObject == null)
@@ -238,6 +258,11 @@ internal class AnimationEditorWindow : MonoBehaviour
                 _root.Q<Toggle>("animation-teleport-to-start").value = options.teleportToStart;
                 _root.Q<TextField>("animation-warmup").value = GuiUtils.FloatToString(options.animationWarmupDelay);
                 _root.Q<TextField>("animation-repeats").value = options.animationRepeats.ToString();
+
+                EnsureAnimationActionControl();
+                if (_triggerActionField != null)
+                    _triggerActionField.SetValueWithoutNotify(
+                        ((MO_TriggerAction)options.triggerAction).ToString());
 
                 GuiUtils.SetVisible(_root.Q<Label>("animation-steps-empty"), steps.Count == 0);
 

@@ -5,6 +5,12 @@ using UnityEngine;
 
 namespace Liftoff.MovingObjects.Player;
 
+internal enum MO_TriggerAction
+{
+    Restart = 0,
+    Stop = 1
+}
+
 internal sealed class AnimationPlayer : MonoBehaviour
 {
     private Coroutine _animationCoroutine;
@@ -100,7 +106,26 @@ internal sealed class AnimationPlayer : MonoBehaviour
 
     public void Trigger()
     {
-        Restart(true);
+        switch ((MO_TriggerAction)options.triggerAction)
+        {
+            case MO_TriggerAction.Stop:
+                StopAtCurrent();
+                break;
+            default: // Restart (also covers any unknown value)
+                Restart(true);
+                break;
+        }
+    }
+
+    // Halt the running loop where it is, without snapping back to the start pose (unlike Stop()).
+    // Used by the Stop trigger action so a "running → stop on trigger" object freezes in place.
+    public void StopAtCurrent()
+    {
+        if (_animationCoroutine != null)
+        {
+            StopCoroutine(_animationCoroutine);
+            _animationCoroutine = null;
+        }
     }
 
     private void Stop()

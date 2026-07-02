@@ -22,6 +22,11 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.1.2
+
+- **[Trigger action: (re)start vs. stop](#trigger-action-restart-vs-stop)** — a `Restart`/`Stop` option on animations, so a trigger can now switch a running animation *off* (freeze in place), the mirror of the existing "start on trigger" behavior.
+- Verified against **Liftoff 1.7.4**.
+
 ### New in 1.1.1
 
 - **[Portal-style teleports](#portal-style-teleports)** — opt-in seamless teleports that carry the drone's momentum and orientation into the exit gate's frame, with an optional exit-speed override.
@@ -81,12 +86,21 @@ An optional **Exit speed** (km/h) overrides the exit magnitude while keeping the
 
 Triggers (teleports, animation/physics starts) previously **missed fast passes** — Unity's `OnTriggerEnter` only fires when the drone overlaps a collider on a physics step, so a fast drone could tunnel straight through. The mod now adds a continuous-collision watchdog on the drone plus swept-ray path detection against trigger colliders, so triggers fire reliably at any speed.
 
+### Trigger action: (re)start vs. stop
+
+A trigger could previously only **(re)start** an animation, and any object that was a trigger target began **dormant** and played on trigger. Animations now carry a **Trigger action** option — `Restart` (default) or `Stop`:
+
+- **Restart** — unchanged behavior: the object stays dormant until a trigger (re)starts it.
+- **Stop** — the object **runs from the start** and a trigger **freezes it in place** (it does not snap back to its start pose). This is the mirror of "start on trigger" — e.g. a spinning hazard or moving platform that a gate switches off. A drone reset restarts the animation from the top.
+
+**Authoring:** in the animation editor window, set **Trigger action** to `Stop`, give the object a trigger `Name`, and target that name from a checkpoint's trigger `Target`. It defaults to `Restart`, so existing maps are unaffected.
+
 ## Install
 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.1.1.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.1.2.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`
