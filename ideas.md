@@ -62,6 +62,39 @@ Current behavior: keyframe steps interpolated with **linear `Lerp`** for both po
 rotation (`AnimationPlayer.cs:75-77`); supports warmup delay, per-step delay, and N-repeat
 or infinite looping (`animationRepeats`, 0 = infinite). No easing, no procedural motion.
 
+### Trigger action: (re)start vs. stop  *(NEW, logic — requested)*
+- **Status: open.** **Effort: low.**
+- **What:** Today a trigger can only make an animation **(re)start**. An object that's a
+  trigger target always begins **dormant** and plays on trigger; there's no way to have an
+  animation that runs **from the start** and then **stops** when triggered. Add a
+  `triggerAction` option — `Restart` (current behavior) or `Stop` — so authors can choose
+  what a trigger does to the animation.
+- **Why:** Requested by a mapper. Enables the mirror of the existing pattern: instead of
+  "dormant → start on trigger", you get "running → stop on trigger" (e.g. a spinning hazard
+  or moving platform that a gate switches off). Reuses the trigger plumbing that already
+  exists; it's a small dispatch + option.
+- **How it changes the current behavior:**
+  - `Trigger()` currently always calls `Restart(true)` (`AnimationPlayer.cs:101-104`). It
+    becomes a switch on `triggerAction`: `Restart` keeps today's behavior; `Stop` halts the
+    running coroutine.
+  - Being a trigger target currently *forces* dormancy —
+    `waitForTrigger = !string.IsNullOrEmpty(options.triggerName)` (`Plugin.cs:265`) suppresses
+    the auto-start in `AnimationPlayer.Start` (`:30`). This must be **decoupled**: a `Stop`-mode
+    object still registers its `TriggerName` but auto-plays on load (`waitForTrigger = false`),
+    so the trigger has something running to stop. `Restart`-mode targets stay dormant as now.
+  - **Design nuance — freeze vs. reset:** the existing `Stop()` *resets the object to its
+    start pose* (`AnimationPlayer.cs:106-119`). "Stop on trigger" most likely means **freeze
+    in place**, so this needs a `StopAtCurrent()` that stops the coroutine *without* snapping
+    back. (A reset-on-stop variant could be added later.)
+  - **Backward compatible:** `triggerAction` defaults to `Restart` (enum value `0`), so every
+    existing map is unaffected.
+- **Possible extensions (out of scope):** a `Toggle` action (start if stopped, stop if
+  running) and the same option for physics objects (`PhysicsPlayer.Trigger`).
+- **Files:** `Patcher.cs` (`MO_AnimationOptions`: `triggerAction` int enum),
+  `AnimationEditorWindow.cs` (code-added dropdown, like the seamless-teleport controls),
+  `AnimationPlayer.cs` (`Trigger` dispatch + `StopAtCurrent`), `Plugin.cs`
+  (`AddAnimation`/`AddTrigger`: compute `waitForTrigger` from the action, pass it through).
+
 ### Easing / animation curves
 - **Status: open.** **Effort: low.**
 - **What:** Steps interpolate with raw linear `Lerp`, which looks robotic. Add a `smooth`
@@ -230,7 +263,59 @@ display-only** (each row shows position/rotation as labels with only time/delay 
 button — no edit/reorder), stats are disabled, and there's no copy/paste, path preview, or
 validation.
 
-### 8a. Copy/paste MO config between objects
+Note the two *different* "copy/paste" asks below: **8a** copies MO *settings* between objects
+that already exist (feasible today, pure C#); the **Multi-object copy/paste** flagship below
+copies the *objects themselves* (needs the item-spawn spike). They're independent — 8a can
+ship first as a stepping stone.
+
+### Multi-object copy/paste + cross-track save/insert  *(NEW, flagship — most-requested)*
+- **Status: open.** **Effort: moderate-high** (gated on one research spike).
+- **Requested by:** track builders across the community (via honk). pshek attempted this
+  several times but couldn't reach deep enough into Liftoff's internals — this note pins down
+  *why* and *where the wall is*, so the next attempt starts from the right place.
+- **What:** Select several objects (the enchanted-editor multi-select already does this), then
+  **copy** and **paste** the whole set — the actual track items, not just their settings —
+  preserving each item's type, transform, scale, and all `mo_*` config, positioned relative to
+  the cursor/gizmo. Then the natural extension: **save a selection to a file and insert it into
+  another track** (reusable "asset stamps" / a prefab library shared between maps).
+- **Why it's the biggest win:** every builder rebuilds symmetric and repetitive sections by
+  hand today. Real multi-object copy/paste (and cross-track insert) is the single largest
+  authoring time-saver, and it unblocks 8f (duplicate/array/mirror) which is the same
+  primitive with an offset pattern.
+- **Why it kept failing — the actual wall:** the mod has **never spawned a track item.**
+  Everything it does is *attach components to flags that already exist* (`AnimationPlayer`,
+  `TriggerBehavior`), reparent them for grouping (`Plugin.GroupFlags`), or clone an object's
+  *highlight overlay* for selection (`PlacementUtilsWindow.Highlight`). Creating a genuine new
+  `TrackItem*` with its own `TrackBlueprint` is a capability that doesn't exist yet. That
+  missing spawn primitive — not the selection or the data — is what blocked every prior try.
+- **Why it's reachable now (three enablers already in place):**
+  1. **Multi-select is solved.** Enchanted middle-click tags a set with `GroupSelectionInfo`
+     markers and each object's full `TrackBlueprint` is reachable via
+     `ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>` (`PlacementUtilsWindow.cs:245-278`).
+  2. **Blueprints already serialize to XML** — that's how the `mo_*` fields persist in track
+     files. So a copied selection is just a list of blueprints, and **save/insert is writing
+     that list to a file and reading it back**. A saved stamp is effectively a mini track file.
+  3. **The game already instantiates items from blueprints** — that's how it loads a track.
+     Candidates found in `Assembly-CSharp.dll`: the load path (`TrackEditorStateLoadTrack`,
+     `RoutineLoadTrack`, `RoutinePreloadTrackItems`) and the palette-spawn path
+     (`itemSpawnerContentPanel`, `lastSpawnedPrefab`, `StoreBlueprint` / `storeInBlueprint`).
+- **The one spike:** locate and drive (reflection/Harmony) the game's *"instantiate a live
+  item from a `TrackBlueprint`"* routine — the same one track-load uses. **Once that call
+  works, copy/paste, duplicate/array/mirror (8f), and cross-track save/insert are all the same
+  primitive**, differing only in where the blueprints come from (memory vs. file) and how
+  they're offset.
+- **Design notes:** store each item's transform *relative to an anchor* (selection centroid or
+  the gizmo) so paste lands relative to the cursor; assign **fresh `mo_groupId` GUIDs** on
+  paste so a pasted group doesn't silently merge with the source group; for save/insert, reuse
+  the game's `TrackBlueprint` XML serializer so stamps are forward-compatible with map files.
+- **Suggested order:** (1) spike the spawn call on a *single* item; (2) single-item duplicate;
+  (3) multi-object copy/paste; (4) save/insert to file. Each step is shippable on its own.
+- **Files:** `PlacementUtilsWindow.cs` (selection → copy/paste/insert UI + hotkeys),
+  `Shared.cs` (the clipboard), a new spawn helper (e.g. `Utils/ItemSpawner.cs`) wrapping the
+  reflected game routine, `Utils/EditorUtils.cs`; a small serializer for the save-to-file
+  format. Directly unblocks **8f**.
+
+### 8a. Copy/paste MO config between objects  *(subset of the flagship above — ships first)*
 - **Status: open.** **Effort: moderate** (pure C#).
 - **What:** A clipboard in `Shared` that deep-copies the selected blueprint's
   `mo_animationOptions` + `mo_animationSteps` + `mo_triggerOptions`, with Copy/Paste buttons
@@ -273,10 +358,12 @@ validation.
 ### 8f. Duplicate / array / mirror placement
 - **Status: open.** **Effort: moderate-high.**
 - **What:** Clone the selected item *with* its MO config, offset it, or array N copies /
-  mirror across an axis. Builds on 8a.
+  mirror across an axis.
 - **Why:** Fast construction of repetitive/symmetric track sections.
-- **Files:** `PlacementUtilsWindow.cs` (depends on the game's item-spawn API — the most
-  "more work" of these).
+- **Depends on:** the same item-spawn spike as the **Multi-object copy/paste** flagship above
+  — this is that primitive plus an offset/mirror pattern. Do the flagship spike first; then
+  this is mostly UI.
+- **Files:** `PlacementUtilsWindow.cs` + the shared spawn helper from the flagship.
 
 ### 8g. Trigger/portal validation (lint)
 - **Status: open.** **Effort: low-moderate.**
