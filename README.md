@@ -12,6 +12,8 @@ Most people who install this mod do so to **fly community-made maps that use mov
 
 If you've been pointed at this mod by a community or league, you most likely just want the runtime — see [Install](#install) below.
 
+If you want to **build** maps with moving objects, see the **[User Guide](USERGUIDE.md)** — it details every feature and how to use it.
+
 ### Communities using this mod
 
 - **[JMT FPV](https://jmtfpv.com)** runs a multiplayer room called **JMT-MOD** that races on tracks built around moving objects from this mod. JMT FPV publishes their own setup walkthrough at <https://jmtfpv.com/install> — follow that for the JMT-specific server/lobby steps; the *mod-side* installation below is the same regardless of which community you're flying with.
