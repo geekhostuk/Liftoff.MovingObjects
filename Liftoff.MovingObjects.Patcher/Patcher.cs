@@ -127,6 +127,10 @@ namespace Liftoff.MovingObjects.Patcher
                 assembly.MainModule.ImportReference(typeof(bool)));
             AddSerializableField(assembly, triggerType, "exitSpeed",
                 assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, triggerType, "triggerOnce",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, triggerType, "triggerCooldown",
+                assembly.MainModule.ImportReference(typeof(float)));
 
             var animationType = AddSerializableType(assembly, "MO_Animation");
             AddSerializableField(assembly, animationType, "delay", assembly.MainModule.ImportReference(typeof(float)));

@@ -43,6 +43,12 @@ internal class TriggerBehavior : MonoBehaviour
     public bool seamlessTeleport;
     public float exitSpeed;
 
+    public bool triggerOnce;
+    public float triggerCooldown;
+
+    private bool _hasFiredOnce;
+    private float _cooldownUntil;
+
     private void Start()
     {
         _droneLayer = LayerMask.NameToLayer("Drone");
@@ -69,6 +75,13 @@ internal class TriggerBehavior : MonoBehaviour
     // the pass actually triggered (i.e. it was not rejected by the speed gate).
     private bool HandlePass(Rigidbody body)
     {
+        // One-shot / cooldown gating. triggerOnce fires only the first pass per flight (re-armed
+        // on drone reset via ResetState); triggerCooldown rate-limits re-firing.
+        if (triggerOnce && _hasFiredOnce)
+            return false;
+        if (triggerCooldown > 0f && Time.time < _cooldownUntil)
+            return false;
+
         var speed = -1f;
         if (body != null)
         {
@@ -87,6 +100,9 @@ internal class TriggerBehavior : MonoBehaviour
         }
 
         _triggered = true;
+        _hasFiredOnce = true;
+        if (triggerCooldown > 0f)
+            _cooldownUntil = Time.time + triggerCooldown;
 
         Log.LogDebug($"Triggered by {body}, speed {speed}");
         foreach (var player in _animationPlayers)
@@ -228,5 +244,15 @@ internal class TriggerBehavior : MonoBehaviour
             continuousCollision.ResetTrajectory();
 
         _teleportDrone = null;
+    }
+
+    // Re-arm per-flight trigger state (one-shot / cooldown). Called from the drone-reset hook so a
+    // one-shot gate fires again on the next flight without a scene reload.
+    public void ResetState()
+    {
+        _triggered = false;
+        _sweptTriggered = false;
+        _hasFiredOnce = false;
+        _cooldownUntil = 0f;
     }
 }

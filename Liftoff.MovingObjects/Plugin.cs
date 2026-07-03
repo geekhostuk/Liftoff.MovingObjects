@@ -175,6 +175,10 @@ public sealed class Plugin : BaseUnityPlugin
             p.enabled = false;
             p.Restart();
         }
+
+        // Re-arm per-flight trigger state (one-shot gates, cooldowns, sequential counters).
+        foreach (var t in FindObjectsOfType<TriggerBehavior>())
+            t.ResetState();
     }
 
     private static void OnDroneResetDone()
@@ -296,6 +300,8 @@ public sealed class Plugin : BaseUnityPlugin
                 trigger.triggerTeleport = options.triggerTeleport;
                 trigger.seamlessTeleport = options.seamlessTeleport;
                 trigger.exitSpeed = options.exitSpeed;
+                trigger.triggerOnce = options.triggerOnce;
+                trigger.triggerCooldown = options.triggerCooldown;
             }
         }
 

@@ -42,6 +42,8 @@ internal class AnimationEditorWindow : MonoBehaviour
 
     private Toggle _seamlessTeleportToggle;
     private TextField _exitSpeedField;
+    private Toggle _triggerOnceToggle;
+    private TextField _triggerCooldownField;
     private DropdownField _triggerActionField;
     private DropdownField _easingField;
     private Toggle _pingPongToggle;
@@ -180,6 +182,14 @@ internal class AnimationEditorWindow : MonoBehaviour
         _exitSpeedField = new TextField("Exit speed:") { maxLength = 16 };
         GuiUtils.ConvertToFloatField(_exitSpeedField, f => trigger.exitSpeed = f);
         targetSection.Add(_exitSpeedField);
+
+        _triggerOnceToggle = new Toggle("Trigger once (per flight)") { focusable = false };
+        _triggerOnceToggle.RegisterValueChangedCallback(evt => trigger.triggerOnce = evt.newValue);
+        targetSection.Add(_triggerOnceToggle);
+
+        _triggerCooldownField = new TextField("Cooldown (s):") { maxLength = 16 };
+        GuiUtils.ConvertToFloatField(_triggerCooldownField, f => trigger.triggerCooldown = f);
+        targetSection.Add(_triggerCooldownField);
     }
 
     // Same code-added pattern as EnsureTeleportControls, but for the Trigger action dropdown
@@ -381,6 +391,10 @@ internal class AnimationEditorWindow : MonoBehaviour
                 _seamlessTeleportToggle.SetValueWithoutNotify(trigger.seamlessTeleport);
             if (_exitSpeedField != null)
                 _exitSpeedField.SetValueWithoutNotify(GuiUtils.FloatToString(trigger.exitSpeed));
+            if (_triggerOnceToggle != null)
+                _triggerOnceToggle.SetValueWithoutNotify(trigger.triggerOnce);
+            if (_triggerCooldownField != null)
+                _triggerCooldownField.SetValueWithoutNotify(GuiUtils.FloatToString(trigger.triggerCooldown));
         }
 
         var animationBox = _root.Q<GroupBox>("animation-box");
