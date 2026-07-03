@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using BepInEx.Logging;
 using UnityEngine;
 using Logger = BepInEx.Logging.Logger;
@@ -90,5 +91,82 @@ internal static class ItemSpawner
     {
         for (var i = 1; i <= count; i++)
             Duplicate(source, step * i);
+    }
+
+    // Multi-object paste: spawn a set of source blueprints translated so their centroid lands at
+    // targetAnchor (the cursor/gizmo). Grouped items keep their grouping but under fresh group ids
+    // so a pasted group never silently merges with the source group.
+    public static void Paste(List<TrackBlueprint> sources, Vector3 sourceCentroid, Vector3 targetAnchor)
+    {
+        var groupMap = new Dictionary<string, string>();
+        var delta = targetAnchor - sourceCentroid;
+
+        foreach (var source in sources)
+        {
+            var bp = CloneUtils.DeepClone(source);
+            bp.position = new SerializableVector3(ToVector3(source.position) + delta);
+            bp.mo_groupId = RemapGroup(source.mo_groupId, groupMap);
+            SpawnFromBlueprint(bp);
+        }
+    }
+
+    // Mirror (8f): spawn a mirrored copy of the source blueprints reflected across the plane
+    // through `pivot` with the given normal, under fresh group ids. Rotation is mirrored by
+    // reflecting the forward/up vectors (a proper Quaternion can't encode the handedness flip, so
+    // this is the standard best-effort mirror).
+    public static void Mirror(List<TrackBlueprint> sources, Vector3 pivot, Vector3 normal)
+    {
+        normal = normal.normalized;
+        var groupMap = new Dictionary<string, string>();
+
+        foreach (var source in sources)
+        {
+            var bp = CloneUtils.DeepClone(source);
+
+            var pos = pivot + Reflect(ToVector3(source.position) - pivot, normal);
+            var rot = Quaternion.Euler(ToVector3(source.rotation));
+            var mirrored = Quaternion.LookRotation(Reflect(rot * Vector3.forward, normal),
+                Reflect(rot * Vector3.up, normal));
+
+            bp.position = new SerializableVector3(pos);
+            bp.rotation = new SerializableVector3(mirrored.eulerAngles);
+            bp.mo_groupId = RemapGroup(source.mo_groupId, groupMap);
+            SpawnFromBlueprint(bp);
+        }
+    }
+
+    // Centroid of a set of blueprint positions — the anchor a copied selection pastes relative to.
+    public static Vector3 Centroid(List<TrackBlueprint> blueprints)
+    {
+        if (blueprints.Count == 0)
+            return Vector3.zero;
+
+        var sum = Vector3.zero;
+        foreach (var bp in blueprints)
+            sum += ToVector3(bp.position);
+        return sum / blueprints.Count;
+    }
+
+    private static string RemapGroup(string oldId, Dictionary<string, string> map)
+    {
+        if (string.IsNullOrEmpty(oldId))
+            return null;
+        if (!map.TryGetValue(oldId, out var newId))
+        {
+            newId = Guid.NewGuid().ToString("D");
+            map[oldId] = newId;
+        }
+
+        return newId;
+    }
+
+    private static Vector3 Reflect(Vector3 v, Vector3 normal)
+    {
+        return v - 2f * Vector3.Dot(v, normal) * normal;
+    }
+
+    private static Vector3 ToVector3(SerializableVector3 v)
+    {
+        return new Vector3(v.x, v.y, v.z);
     }
 }

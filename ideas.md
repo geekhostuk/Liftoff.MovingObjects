@@ -96,13 +96,22 @@ A `triggerAction` option (`Restart`/`Stop`) lets a trigger halt a running animat
 - Files: `AnimationEditorWindow.cs`, `PlacementUtilsWindow.cs`, `Shared.cs`,
   `Utils/EditorUtils.cs`, `Utils/CloneUtils.cs`, `PathPreview.cs`, `TriggerLinkPreview.cs`.
 
-### ✅ Item spawning + duplicate/array — v1.2.0
+### ✅ Item spawning + duplicate/array/mirror/copy-paste/stamps — v1.2.0
 The mod can finally **instantiate a live track item from a `TrackBlueprint`** — the primitive
 that blocked every prior copy/paste attempt. The chain (all public, obfuscated types held via
 `var`): `TrackEditor.use.GetTrackItemPrefab(itemID)` → `CreateNewTrackItem(prefab)` →
 `AssignIDToTrackItem(item)` → `item.ApplyBlueprint(blueprint)`, wrapped in
-`Utils/ItemSpawner.cs`. Single-item **Duplicate** and **Array** placement ship on it (buttons in
-the placement window). *Compiles against the game; needs in-game playtest.*
+`Utils/ItemSpawner.cs`. Everything below ships on it via placement-window buttons:
+- **Duplicate** and **Array** (single item, offset pattern).
+- **Multi-object copy/paste** — copy the enchanted multi-select set, paste relative to the gizmo,
+  with fresh `mo_groupId` GUIDs so a pasted group never merges with the source (`Shared.ItemClipboard`).
+- **8f. Mirror** — reflect the selection across the vertical plane through the gizmo (position +
+  best-effort rotation mirror).
+- **Cross-track save/insert** — save a selection to a named stamp file under `mo_stamps/` and
+  insert it into any track (`Utils/StampIO.cs`, XmlSerializer over `TrackBlueprint`; all its fields
+  are simple/serializable).
+
+*All item-spawn features compile against the game; needs in-game playtest.*
 
 ### ✅ Workshop preview override *(FINISH)* — v1.2.0
 The `PopupShareContent.ShareItem` patch is restored. `ShareItem` has a single overload, so it is
@@ -113,13 +122,12 @@ parameter — and the `Sprite` preview is overridden positionally with a local `
 
 ## Remaining follow-ons
 
-These layer directly on the v1.2.0 item-spawn primitive (`Utils/ItemSpawner.cs`) and are mostly
-UI once the spawn is playtest-confirmed:
+The whole backlog is shipped. Possible future polish (not currently planned):
 
-- **Multi-object copy/paste**: copy the enchanted multi-select set (the `GroupSelectionInfo`
-  blueprints) to a clipboard and paste the whole set at a cursor-relative offset, assigning fresh
-  `mo_groupId` GUIDs. Same primitive as `ItemSpawner.Duplicate`, iterated over the selection.
-- **8f. Mirror**: `ItemSpawner.Duplicate` with a reflected transform across a chosen axis/plane.
-- **Cross-track save/insert**: serialize a selection's blueprints to a stamp file (reuse the
-  game's `TrackBlueprint` XML) and spawn them back into another track.
-- Files: `PlacementUtilsWindow.cs`, `Utils/ItemSpawner.cs`, a small stamp serializer.
+- **Mirror axis choice** — mirror is currently across the vertical plane through the gizmo; a
+  selector for X/Y/Z mirror planes would generalise it.
+- **Stamp browser** — the save/insert flow uses a named stamp field; a list/picker of saved
+  stamps under `mo_stamps/` would be friendlier than typing names.
+- **True mirrored rotation** — 3D mirroring can't be encoded in a plain `Quaternion` + positive
+  scale, so `ItemSpawner.Mirror` uses the standard reflect-forward/up approximation; asymmetric
+  items may need manual rotation touch-up after a mirror.

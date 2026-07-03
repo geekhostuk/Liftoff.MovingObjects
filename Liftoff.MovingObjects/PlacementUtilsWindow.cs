@@ -43,6 +43,13 @@ internal class PlacementUtilsWindow : MonoBehaviour
     private TextField _arrayCountField;
     private Button _arrayButton;
     private int _arrayCount = 3;
+    private Button _copySelectionButton;
+    private Button _pasteSelectionButton;
+    private Button _mirrorButton;
+    private TextField _stampNameField;
+    private Button _saveStampButton;
+    private Button _insertStampButton;
+    private string _stampName = "stamp";
 
     public Assets assets;
 
@@ -219,6 +226,97 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
         _arrayButton = new Button(ArraySelected) { text = "Array item", focusable = false };
         container.Add(_arrayButton);
+
+        _copySelectionButton = new Button(CopySelection) { text = "Copy selection", focusable = false };
+        container.Add(_copySelectionButton);
+
+        _pasteSelectionButton = new Button(PasteSelection) { text = "Paste selection", focusable = false };
+        container.Add(_pasteSelectionButton);
+
+        _mirrorButton = new Button(MirrorSelection) { text = "Mirror selection", focusable = false };
+        container.Add(_mirrorButton);
+
+        _stampNameField = new TextField("Stamp name:") { maxLength = 40 };
+        _stampNameField.SetValueWithoutNotify(_stampName);
+        _stampNameField.RegisterValueChangedCallback(evt => _stampName = evt.newValue);
+        container.Add(_stampNameField);
+
+        _saveStampButton = new Button(SaveStamp) { text = "Save selection to stamp", focusable = false };
+        container.Add(_saveStampButton);
+
+        _insertStampButton = new Button(InsertStamp) { text = "Insert stamp", focusable = false };
+        container.Add(_insertStampButton);
+    }
+
+    private static Vector3 GizmoPosition()
+    {
+        var gizmo = GameObject.Find("TrackEditorGizmo");
+        return gizmo != null ? gizmo.transform.position : Vector3.zero;
+    }
+
+    // The current selection: the enchanted multi-select set (GroupSelectionInfo markers), or the
+    // single selected item as a fallback.
+    private List<TrackBlueprint> GetSelectedBlueprints()
+    {
+        var list = FindObjectsOfType<GroupSelectionInfo>()
+            .Select(info => info.trackBlueprint)
+            .Where(blueprint => blueprint != null)
+            .Distinct()
+            .ToList();
+
+        if (list.Count == 0 && _selectedItem?.blueprint != null)
+            list.Add(_selectedItem.blueprint);
+
+        return list;
+    }
+
+    private void CopySelection()
+    {
+        var blueprints = GetSelectedBlueprints();
+        if (blueprints.Count == 0)
+            return;
+
+        Shared.ItemClipboard.blueprints = blueprints.Select(b => CloneUtils.DeepClone(b)).ToList();
+        Shared.ItemClipboard.centroid = ItemSpawner.Centroid(blueprints);
+    }
+
+    private void PasteSelection()
+    {
+        if (!Shared.ItemClipboard.HasData)
+            return;
+
+        ItemSpawner.Paste(Shared.ItemClipboard.blueprints, Shared.ItemClipboard.centroid, GizmoPosition());
+        Shared.Editor.RequestRefreshGui();
+    }
+
+    private void MirrorSelection()
+    {
+        var blueprints = GetSelectedBlueprints();
+        if (blueprints.Count == 0)
+            return;
+
+        // Mirror across the vertical plane through the gizmo (left/right).
+        ItemSpawner.Mirror(blueprints, GizmoPosition(), Vector3.right);
+        Shared.Editor.RequestRefreshGui();
+    }
+
+    private void SaveStamp()
+    {
+        var blueprints = GetSelectedBlueprints();
+        if (blueprints.Count == 0)
+            return;
+
+        StampIO.Save(_stampName, blueprints.Select(b => CloneUtils.DeepClone(b)).ToList());
+    }
+
+    private void InsertStamp()
+    {
+        var items = StampIO.Load(_stampName);
+        if (items == null || items.Count == 0)
+            return;
+
+        ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition());
+        Shared.Editor.RequestRefreshGui();
     }
 
     // Single-item duplicate built on the ItemSpawner spike: clone the selected item at a one-grid

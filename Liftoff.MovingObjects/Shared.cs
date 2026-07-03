@@ -25,6 +25,16 @@ internal static class Shared
         public static bool HasData => animationOptions != null || triggerOptions != null;
     }
 
+    // Whole-item clipboard for multi-object copy/paste: deep-cloned blueprints plus the centroid
+    // they were copied around, so paste can land them relative to the cursor.
+    internal static class ItemClipboard
+    {
+        public static List<TrackBlueprint> blueprints;
+        public static UnityEngine.Vector3 centroid;
+
+        public static bool HasData => blueprints != null && blueprints.Count > 0;
+    }
+
     internal static class Editor
     {
         public static event Action<ItemInfo> OnItemSelected;
