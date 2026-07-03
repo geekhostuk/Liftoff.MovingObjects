@@ -11,6 +11,15 @@ internal enum MO_TriggerAction
     Stop = 1
 }
 
+internal enum MO_Easing
+{
+    Linear = 0,
+    SmoothStep = 1,
+    EaseIn = 2,
+    EaseOut = 3,
+    EaseInOut = 4
+}
+
 internal sealed class AnimationPlayer : MonoBehaviour
 {
     private Coroutine _animationCoroutine;
@@ -78,7 +87,7 @@ internal sealed class AnimationPlayer : MonoBehaviour
 
         while (elapsed < duration)
         {
-            var t = elapsed / duration;
+            var t = Ease(options.easingMode, elapsed / duration);
             MoveRigidBody(Vector3.Lerp(startPosition, targetPosition, t),
                 Quaternion.Lerp(startRotation, targetRotation, t));
             elapsed += Time.deltaTime;
@@ -93,6 +102,25 @@ internal sealed class AnimationPlayer : MonoBehaviour
     {
         _rigidBody.MovePosition(targetPosition);
         _rigidBody.MoveRotation(targetRotation);
+    }
+
+    // Remap a linear 0..1 interpolation parameter through the selected easing curve. Linear (the
+    // default, value 0) is a no-op so existing maps are unaffected.
+    private static float Ease(int mode, float t)
+    {
+        switch ((MO_Easing)mode)
+        {
+            case MO_Easing.SmoothStep:
+                return t * t * (3f - 2f * t);
+            case MO_Easing.EaseIn:
+                return t * t;
+            case MO_Easing.EaseOut:
+                return t * (2f - t);
+            case MO_Easing.EaseInOut:
+                return t < 0.5f ? 2f * t * t : -1f + (4f - 2f * t) * t;
+            default:
+                return t;
+        }
     }
 
     public void Restart(bool triggered = false)

@@ -75,6 +75,8 @@ namespace Liftoff.MovingObjects.Patcher
                 assembly.MainModule.ImportReference(typeof(int)));
             AddSerializableField(assembly, animationOptsType, "triggerAction",
                 assembly.MainModule.ImportReference(typeof(int)));
+            AddSerializableField(assembly, animationOptsType, "easingMode",
+                assembly.MainModule.ImportReference(typeof(int)));
 
 
             var triggerType = AddSerializableType(assembly, "MO_TriggerOptions");

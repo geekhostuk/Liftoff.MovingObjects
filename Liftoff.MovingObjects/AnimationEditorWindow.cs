@@ -43,6 +43,7 @@ internal class AnimationEditorWindow : MonoBehaviour
     private Toggle _seamlessTeleportToggle;
     private TextField _exitSpeedField;
     private DropdownField _triggerActionField;
+    private DropdownField _easingField;
 
     public Assets assets;
 
@@ -174,6 +175,25 @@ internal class AnimationEditorWindow : MonoBehaviour
         animationBox.Add(_triggerActionField);
     }
 
+    // Home for all animation-box controls added in code (the compiled UI bundle predates them).
+    // Same idempotent, guard-on-.parent contract as EnsureAnimationActionControl; grows as new
+    // animation options are added. Re-invoked from RefreshGui so a tree rebuild re-adds them.
+    private void EnsureAnimationControls()
+    {
+        var animationBox = _root.Q<GroupBox>("animation-box");
+        if (animationBox == null)
+            return;
+
+        if (_easingField != null && _easingField.parent == animationBox)
+            return;
+
+        _easingField = new DropdownField("Easing:",
+            Enum.GetNames(typeof(MO_Easing)).ToList(), 0) { focusable = false };
+        _easingField.RegisterValueChangedCallback(evt =>
+            options.easingMode = (int)Enum.Parse<MO_Easing>(evt.newValue, true));
+        animationBox.Add(_easingField);
+    }
+
     private void OnPlayAnimationClicked()
     {
         if (_tempAnimationObject == null)
@@ -263,6 +283,10 @@ internal class AnimationEditorWindow : MonoBehaviour
                 if (_triggerActionField != null)
                     _triggerActionField.SetValueWithoutNotify(
                         ((MO_TriggerAction)options.triggerAction).ToString());
+
+                EnsureAnimationControls();
+                if (_easingField != null)
+                    _easingField.SetValueWithoutNotify(((MO_Easing)options.easingMode).ToString());
 
                 GuiUtils.SetVisible(_root.Q<Label>("animation-steps-empty"), steps.Count == 0);
 
