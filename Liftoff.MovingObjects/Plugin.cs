@@ -240,8 +240,6 @@ public sealed class Plugin : BaseUnityPlugin
 
     private static void AddPhysics(TrackBlueprint blueprint, Component flag, bool waitForTrigger)
     {
-        if (!string.IsNullOrEmpty(blueprint.mo_groupId))
-            return; // TODO: Fix group physics
         if (flag.gameObject.GetComponent<PhysicsPlayer>() != null)
             return;
 
@@ -250,6 +248,21 @@ public sealed class Plugin : BaseUnityPlugin
         var player = flag.gameObject.AddComponent<PhysicsPlayer>();
         player.options = blueprint.mo_animationOptions;
         player.waitForTrigger = waitForTrigger;
+
+        // Only the group root (the flag carrying mo_animationOptions) reaches here, so it gets the
+        // single Rigidbody. GroupFlags has already transform-parented the other members underneath
+        // it, so they act as compound colliders of that one body — no nested rigidbodies. Enable
+        // every collider in the assembly so the whole group collides, not just the root.
+        if (!string.IsNullOrEmpty(blueprint.mo_groupId))
+        {
+            foreach (var groupCollider in flag.GetComponentsInChildren<Collider>(true))
+                if (!groupCollider.enabled)
+                {
+                    groupCollider.enabled = true;
+                    groupCollider.gameObject.layer = LayerMask.NameToLayer("Ghost");
+                }
+            return;
+        }
 
         var collider = flag.GetComponentInChildren<Collider>();
         if (collider?.enabled == false)

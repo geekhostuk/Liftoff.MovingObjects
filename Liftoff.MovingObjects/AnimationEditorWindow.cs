@@ -28,7 +28,6 @@ internal class AnimationEditorWindow : MonoBehaviour
 
     private const string PlayButtonText = "Play";
     private const string StopButtonText = "Stop";
-    private const string NotSupportedButtonText = "CURRENTLY IN DEVELOPEMENT";
 
     private static readonly ManualLogSource Log =
         Logger.CreateLogSource($"{PluginInfo.PLUGIN_NAME}.{nameof(AnimationEditorWindow)}");
@@ -545,9 +544,6 @@ internal class AnimationEditorWindow : MonoBehaviour
 
     private void OnPlayPhysicsClicked()
     {
-        if (!string.IsNullOrEmpty(_blueprint.mo_groupId))
-            return; // TODO: Fix group physics
-
         if (_tempPhysicsObject == null)
             StartSimulation();
         else
@@ -725,11 +721,7 @@ internal class AnimationEditorWindow : MonoBehaviour
                 }
 
                 var physicsPlay = _root.Q<Button>("physics-play");
-
-                if (!string.IsNullOrEmpty(_blueprint.mo_groupId)) // TODO: Fix group physics
-                    physicsPlay.text = NotSupportedButtonText;
-                else
-                    physicsPlay.text = _tempPhysicsObject == null ? PlayButtonText : StopButtonText;
+                physicsPlay.text = _tempPhysicsObject == null ? PlayButtonText : StopButtonText;
                 break;
             case Type.None:
                 GuiUtils.SetVisible(animationBox, false);
