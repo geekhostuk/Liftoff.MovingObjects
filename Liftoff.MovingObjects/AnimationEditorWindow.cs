@@ -44,6 +44,7 @@ internal class AnimationEditorWindow : MonoBehaviour
     private TextField _exitSpeedField;
     private DropdownField _triggerActionField;
     private DropdownField _easingField;
+    private Toggle _pingPongToggle;
 
     public Assets assets;
 
@@ -192,6 +193,10 @@ internal class AnimationEditorWindow : MonoBehaviour
         _easingField.RegisterValueChangedCallback(evt =>
             options.easingMode = (int)Enum.Parse<MO_Easing>(evt.newValue, true));
         animationBox.Add(_easingField);
+
+        _pingPongToggle = new Toggle("Ping-pong") { focusable = false };
+        _pingPongToggle.RegisterValueChangedCallback(evt => options.pingPong = evt.newValue);
+        animationBox.Add(_pingPongToggle);
     }
 
     private void OnPlayAnimationClicked()
@@ -287,6 +292,8 @@ internal class AnimationEditorWindow : MonoBehaviour
                 EnsureAnimationControls();
                 if (_easingField != null)
                     _easingField.SetValueWithoutNotify(((MO_Easing)options.easingMode).ToString());
+                if (_pingPongToggle != null)
+                    _pingPongToggle.SetValueWithoutNotify(options.pingPong);
 
                 GuiUtils.SetVisible(_root.Q<Label>("animation-steps-empty"), steps.Count == 0);
 

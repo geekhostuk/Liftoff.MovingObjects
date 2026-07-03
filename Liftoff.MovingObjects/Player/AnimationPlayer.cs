@@ -28,6 +28,7 @@ internal sealed class AnimationPlayer : MonoBehaviour
     private Rigidbody _rigidBody;
 
     private Step[] _stepsCached;
+    private Step[] _reversedCached;
 
     public MO_AnimationOptions options;
     public List<MO_Animation> steps;
@@ -36,6 +37,7 @@ internal sealed class AnimationPlayer : MonoBehaviour
     private void Start()
     {
         _stepsCached = steps.Select(animation => new Step(animation)).ToArray();
+        _reversedCached = BuildReversed(_stepsCached);
         _rigidBody = gameObject.AddComponent<Rigidbody>();
         _rigidBody.isKinematic = true;
 
@@ -54,18 +56,26 @@ internal sealed class AnimationPlayer : MonoBehaviour
     private IEnumerator AnimationLoop()
     {
         for (var i = 0; options.animationRepeats == 0 || i < options.animationRepeats; i++)
-            yield return PlayAnimation();
+        {
+            yield return PlayAnimation(_stepsCached, false);
+            // Ping-pong: after the forward pass, retrace the visited poses back to the start so
+            // one authored half-animation yields the return leg for free. Counts as one repeat.
+            if (options.pingPong && _reversedCached.Length > 0)
+                yield return PlayAnimation(_reversedCached, true);
+        }
     }
 
-    private IEnumerator PlayAnimation()
+    private IEnumerator PlayAnimation(Step[] stepsArray, bool isReverse)
     {
-        if (options.animationWarmupDelay > 0)
+        // Warmup and the teleport-to-start snap only apply to the outbound pass; the return leg
+        // should flow continuously from wherever the forward pass ended.
+        if (!isReverse && options.animationWarmupDelay > 0)
             yield return new WaitForSeconds(options.animationWarmupDelay);
 
-        for (var i = 0; i < _stepsCached.Length; i++)
+        for (var i = 0; i < stepsArray.Length; i++)
         {
-            var step = _stepsCached[i];
-            if (step.Time <= 0f || (i == 0 && options.teleportToStart))
+            var step = stepsArray[i];
+            if (step.Time <= 0f || (!isReverse && i == 0 && options.teleportToStart))
             {
                 MoveRigidBody(step.Position, step.Rotation);
                 yield return null;
@@ -77,6 +87,24 @@ internal sealed class AnimationPlayer : MonoBehaviour
                 yield return MoveObject(step.Position, step.Rotation, step.Time);
             }
         }
+    }
+
+    // Build the return leg for ping-pong: retrace the poses s[n-2]..s[0], reusing the time/delay
+    // of the forward hop that produced each next pose so the return mirrors the outbound timing.
+    private static Step[] BuildReversed(Step[] forward)
+    {
+        if (forward.Length < 2)
+            return System.Array.Empty<Step>();
+
+        var reversed = new Step[forward.Length - 1];
+        for (var k = 0; k < reversed.Length; k++)
+        {
+            var j = forward.Length - 2 - k;
+            reversed[k] = new Step(forward[j].Position, forward[j].Rotation,
+                forward[j + 1].Time, forward[j + 1].Delay);
+        }
+
+        return reversed;
     }
 
     private IEnumerator MoveObject(Vector3 targetPosition, Quaternion targetRotation, float duration)
@@ -195,6 +223,14 @@ internal sealed class AnimationPlayer : MonoBehaviour
             Rotation = Quaternion.Euler(ToVector3(animation.rotation));
             Time = animation.time;
             Delay = animation.delay;
+        }
+
+        public Step(Vector3 position, Quaternion rotation, float time, float delay)
+        {
+            Position = position;
+            Rotation = rotation;
+            Time = time;
+            Delay = delay;
         }
     }
 }
