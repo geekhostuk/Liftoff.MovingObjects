@@ -54,6 +54,8 @@ internal class AnimationEditorWindow : MonoBehaviour
     private TextField _forceZField;
     private DropdownField _forceModeField;
     private Toggle _forceLocalToggle;
+    private Toggle _routeBySpeedToggle;
+    private TextField _routeSpeedThresholdField;
     private DropdownField _triggerActionField;
     private DropdownField _easingField;
     private Toggle _pingPongToggle;
@@ -237,6 +239,14 @@ internal class AnimationEditorWindow : MonoBehaviour
         _forceLocalToggle = new Toggle("Force in local space") { focusable = false };
         _forceLocalToggle.RegisterValueChangedCallback(evt => trigger.forceLocalSpace = evt.newValue);
         targetSection.Add(_forceLocalToggle);
+
+        _routeBySpeedToggle = new Toggle("Route by speed") { focusable = false };
+        _routeBySpeedToggle.RegisterValueChangedCallback(evt => trigger.routeBySpeed = evt.newValue);
+        targetSection.Add(_routeBySpeedToggle);
+
+        _routeSpeedThresholdField = new TextField("Route threshold (km/h):") { maxLength = 16 };
+        GuiUtils.ConvertToFloatField(_routeSpeedThresholdField, f => trigger.routeSpeedThreshold = f);
+        targetSection.Add(_routeSpeedThresholdField);
     }
 
     // Same code-added pattern as EnsureTeleportControls, but for the Trigger action dropdown
@@ -458,6 +468,11 @@ internal class AnimationEditorWindow : MonoBehaviour
                 _forceZField.SetValueWithoutNotify(GuiUtils.FloatToString(trigger.forceVector.z));
                 _forceModeField.SetValueWithoutNotify(trigger.forceMode == 1 ? "Acceleration" : "Force");
                 _forceLocalToggle.SetValueWithoutNotify(trigger.forceLocalSpace);
+            }
+            if (_routeBySpeedToggle != null)
+            {
+                _routeBySpeedToggle.SetValueWithoutNotify(trigger.routeBySpeed);
+                _routeSpeedThresholdField.SetValueWithoutNotify(GuiUtils.FloatToString(trigger.routeSpeedThreshold));
             }
         }
 

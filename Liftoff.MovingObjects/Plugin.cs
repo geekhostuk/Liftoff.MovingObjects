@@ -312,6 +312,8 @@ public sealed class Plugin : BaseUnityPlugin
                 trigger.forceVector = options.forceVector;
                 trigger.forceMode = options.forceMode;
                 trigger.forceLocalSpace = options.forceLocalSpace;
+                trigger.routeBySpeed = options.routeBySpeed;
+                trigger.routeSpeedThreshold = options.routeSpeedThreshold;
             }
         }
 

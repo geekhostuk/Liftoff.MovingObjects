@@ -56,6 +56,9 @@ internal class TriggerBehavior : MonoBehaviour
     public int forceMode;
     public bool forceLocalSpace;
 
+    public bool routeBySpeed;
+    public float routeSpeedThreshold;
+
     private bool _hasFiredOnce;
     private float _cooldownUntil;
     private int _sequentialIndex;
@@ -129,7 +132,7 @@ internal class TriggerBehavior : MonoBehaviour
         }
 
         if (_teleportTargets != null && _teleportTargets.Length > 0 && body != null && _teleportDrone == null)
-            QueueTeleport(body);
+            QueueTeleport(body, speed);
 
         if (boostEnabled && body != null)
             ApplyBoost(body);
@@ -163,9 +166,9 @@ internal class TriggerBehavior : MonoBehaviour
     // (legacy behaviour). For a seamless ("portal") teleport we re-express the drone's entry
     // velocity and orientation in the destination's frame, so it exits along the destination's
     // facing carrying its momentum — optionally rescaled to exitSpeed (km/h; 0 = keep speed).
-    private void QueueTeleport(Rigidbody body)
+    private void QueueTeleport(Rigidbody body, float speed)
     {
-        var target = SelectTarget();
+        var target = SelectTarget(speed);
 
         _teleportDrone = body;
         _teleportPos = target.position;
@@ -198,10 +201,18 @@ internal class TriggerBehavior : MonoBehaviour
     // Choose which exit marker (when several share the target name) the drone teleports to.
     // Sequential cycles through them in order for predictable multi-exit routing; otherwise a
     // random one is picked (scatter portal).
-    private Transform SelectTarget()
+    private Transform SelectTarget(float speed)
     {
         if (_teleportTargets.Length == 1)
             return _teleportTargets[0];
+
+        // Speed-based routing: below the threshold take the first marker, at/above it the second
+        // (skill-gated shortcut). Falls back gracefully when only one marker is authored.
+        if (routeBySpeed)
+        {
+            var index = speed >= routeSpeedThreshold ? Mathf.Min(1, _teleportTargets.Length - 1) : 0;
+            return _teleportTargets[index];
+        }
 
         if (sequentialTargets)
             return _teleportTargets[_sequentialIndex++ % _teleportTargets.Length];
