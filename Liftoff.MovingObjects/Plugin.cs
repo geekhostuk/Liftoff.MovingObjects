@@ -96,11 +96,27 @@ public sealed class Plugin : BaseUnityPlugin
         placementUtilsWindow.assets = _placementAssets;
     }
 
-    // PopupShareContent.ShareItem patch removed: signature changed in the current
-    // game (now takes a third parameter), and HarmonyX throws on a missing target,
-    // which would abort CreateAndPatchAll and prevent every other patch attaching.
-    // The feature (overriding the Workshop preview image with a local preview.png)
-    // can be re-enabled once the new third parameter type is referenceable.
+    // Override the Workshop preview image with a local preview.png when sharing a track.
+    // The current game's ShareItem gained a third parameter of an obfuscated (unnameable) type,
+    // which is why the old two-type-argument patch could no longer bind. There is only one
+    // ShareItem overload, so we patch it by name alone (no parameter types) — HarmonyX resolves
+    // the single method without us naming the obfuscated type — and reach the Sprite preview
+    // positionally via __1 (the second parameter).
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(PopupShareContent), "ShareItem")]
+    private static void ShareItem(ref Sprite __1)
+    {
+        var overwritePreview = Path.Combine(Paths.GameRootPath, "preview.png");
+        if (!File.Exists(overwritePreview))
+        {
+            Log.LogInfo($"Preview overwrite not found {overwritePreview}, skip");
+            return;
+        }
+
+        var preview = new Texture2D(2, 2);
+        preview.LoadImage(File.ReadAllBytes(overwritePreview));
+        __1 = Sprite.Create(preview, new Rect(0, 0, preview.width, preview.height), new Vector2(0.5f, 0.5f));
+    }
 
     [HarmonyPostfix]
     [HarmonyPatch(typeof(TrackEditorEditWindow), "AtLeastOneItemAvailable", typeof(TrackItemCategory))]
