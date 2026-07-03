@@ -36,6 +36,9 @@ internal class PlacementUtilsWindow : MonoBehaviour
     private Button _lintButton;
     private Label _lintLabel;
     private Button _refreshStatsButton;
+    private Button _triggerLinksButton;
+    private GameObject _triggerLinkObject;
+    private bool _triggerLinksEnabled;
 
     public Assets assets;
 
@@ -60,6 +63,9 @@ internal class PlacementUtilsWindow : MonoBehaviour
     {
         Shared.Editor.OnItemSelected -= OnItemSelected;
         Shared.Editor.OnItemCleared -= OnItemCleared;
+
+        if (_triggerLinkObject != null)
+            Destroy(_triggerLinkObject);
     }
 
     private void OnItemCleared()
@@ -177,12 +183,75 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
         _lintLabel = new Label(string.Empty) { style = { whiteSpace = WhiteSpace.Normal } };
         _root.Add(_lintLabel);
+
+        _triggerLinksButton = new Button(ToggleTriggerLinks) { text = "Toggle trigger links", focusable = false };
+        _root.Add(_triggerLinksButton);
     }
 
     private void RunLint()
     {
         if (_lintLabel != null)
             _lintLabel.text = string.Join("\n", EditorUtils.ValidateTriggers());
+    }
+
+    private void ToggleTriggerLinks()
+    {
+        _triggerLinksEnabled = !_triggerLinksEnabled;
+        UpdateTriggerLinks();
+    }
+
+    // Snapshot the entrance -> named-exit links and render them. Re-toggle after moving objects to
+    // refresh. Pairs with the trigger lint (same name matching) and PathPreview (same overlay style).
+    private void UpdateTriggerLinks()
+    {
+        if (!_triggerLinksEnabled)
+        {
+            if (_triggerLinkObject != null)
+            {
+                Destroy(_triggerLinkObject);
+                _triggerLinkObject = null;
+            }
+            return;
+        }
+
+        var byName = new Dictionary<string, List<(Vector3 pos, Vector3 forward)>>();
+        var entrances = new List<(Vector3 pos, string target)>();
+
+        foreach (var flag in EditorUtils.FindAllFlags())
+        {
+            var blueprint = ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(flag);
+            var trigger = blueprint?.mo_triggerOptions;
+            if (trigger == null)
+                continue;
+
+            var transform = flag.gameObject.transform;
+            if (!string.IsNullOrEmpty(trigger.triggerName))
+            {
+                if (!byName.TryGetValue(trigger.triggerName, out var list))
+                    byName[trigger.triggerName] = list = new List<(Vector3, Vector3)>();
+                list.Add((transform.position, transform.forward));
+            }
+
+            if (!string.IsNullOrEmpty(trigger.triggerTarget))
+                entrances.Add((transform.position, trigger.triggerTarget));
+        }
+
+        var links = new List<TriggerLinkPreview.Link>();
+        foreach (var entrance in entrances)
+            if (byName.TryGetValue(entrance.target, out var targets))
+                foreach (var target in targets)
+                    links.Add(new TriggerLinkPreview.Link
+                    {
+                        From = entrance.pos,
+                        To = target.pos,
+                        Forward = target.forward
+                    });
+
+        if (_triggerLinkObject == null)
+            _triggerLinkObject = new GameObject("MO_TriggerLinks");
+        var preview = _triggerLinkObject.GetComponent<TriggerLinkPreview>() ??
+                      _triggerLinkObject.AddComponent<TriggerLinkPreview>();
+        preview.SetLinks(links);
     }
 
     private static TextField MakeFloatField(string label, Action<float> onChange)
