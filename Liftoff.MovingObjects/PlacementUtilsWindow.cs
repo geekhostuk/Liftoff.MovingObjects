@@ -35,6 +35,7 @@ internal class PlacementUtilsWindow : MonoBehaviour
     private TextField _rotZField;
     private Button _lintButton;
     private Label _lintLabel;
+    private Button _refreshStatsButton;
 
     public Assets assets;
 
@@ -93,16 +94,28 @@ internal class PlacementUtilsWindow : MonoBehaviour
         }
     }
 
+    // On-demand stats: the old code polled this every second (InvokeRepeating in Awake), which
+    // stuttered on large maps. It's now driven by a "Refresh stats" button so the counts are
+    // available without the per-second cost. Triangle counts use GetIndexCount (no per-mesh array
+    // allocation).
     private void UpdateStats()
     {
         if (_root == null)
             return;
 
-        // Counting disabled (see Awake): the previous implementation walked every flag on
-        // the map and summed triangle counts across all child MeshFilters every second,
-        // which stuttered on large maps. We just zero the labels instead of counting.
-        _root.Q<Label>("object-count").text = "0";
-        _root.Q<Label>("triangle-count").text = "0";
+        _root.Q<Label>("object-count").text = EditorUtils.FindAllFlags().Count.ToString();
+
+        long triangles = 0;
+        foreach (var meshFilter in FindObjectsOfType<MeshFilter>())
+        {
+            var mesh = meshFilter.sharedMesh;
+            if (mesh == null)
+                continue;
+            for (var submesh = 0; submesh < mesh.subMeshCount; submesh++)
+                triangles += mesh.GetIndexCount(submesh) / 3;
+        }
+
+        _root.Q<Label>("triangle-count").text = triangles.ToString();
     }
 
     private void OnEnable()
@@ -123,8 +136,8 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
         RefreshGui();
 
-        // Counting is disabled, but call once so the stat labels read "0" instead of
-        // whatever placeholder text is baked into the UI asset bundle.
+        // Count once on open for an immediate figure; thereafter it's refreshed on demand via the
+        // "Refresh stats" button rather than the old per-second poll.
         UpdateStats();
     }
 
@@ -155,6 +168,9 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
         foreach (var field in new[] { _posXField, _posYField, _posZField, _rotXField, _rotYField, _rotZField })
             _root.Add(field);
+
+        _refreshStatsButton = new Button(UpdateStats) { text = "Refresh stats", focusable = false };
+        _root.Add(_refreshStatsButton);
 
         _lintButton = new Button(RunLint) { text = "Validate triggers", focusable = false };
         _root.Add(_lintButton);
