@@ -286,7 +286,9 @@ public sealed class Plugin : BaseUnityPlugin
             Log.LogInfo($"Item with trigger detected: {options.triggerTarget}/{options.triggerName}, {flag}");
         }
 
-        if (!string.IsNullOrEmpty(options.triggerTarget))
+        // A trigger behaviour is needed for a teleport/animation target OR for a standalone
+        // in-place effect (boost/brake gate) that has no target.
+        if (!string.IsNullOrEmpty(options.triggerTarget) || options.boostEnabled)
         {
             var checkpointTrigger = flag.gameObject.transform.Find("CheckpointTrigger");
             if (checkpointTrigger != null && checkpointTrigger.gameObject.GetComponent<TriggerBehavior>() == null)
@@ -303,6 +305,9 @@ public sealed class Plugin : BaseUnityPlugin
                 trigger.triggerOnce = options.triggerOnce;
                 trigger.triggerCooldown = options.triggerCooldown;
                 trigger.sequentialTargets = options.sequentialTargets;
+                trigger.boostEnabled = options.boostEnabled;
+                trigger.speedMultiplier = options.speedMultiplier;
+                trigger.targetSpeed = options.targetSpeed;
             }
         }
 

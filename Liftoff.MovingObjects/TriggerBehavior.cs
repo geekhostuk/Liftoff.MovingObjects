@@ -47,6 +47,10 @@ internal class TriggerBehavior : MonoBehaviour
     public float triggerCooldown;
     public bool sequentialTargets;
 
+    public bool boostEnabled;
+    public float speedMultiplier;
+    public float targetSpeed;
+
     private bool _hasFiredOnce;
     private float _cooldownUntil;
     private int _sequentialIndex;
@@ -122,7 +126,31 @@ internal class TriggerBehavior : MonoBehaviour
         if (_teleportTargets != null && _teleportTargets.Length > 0 && body != null && _teleportDrone == null)
             QueueTeleport(body);
 
+        if (boostEnabled && body != null)
+            ApplyBoost(body);
+
         return true;
+    }
+
+    // Boost / brake gate: rescale the drone's speed in place (no teleport) on pass. An absolute
+    // targetSpeed (km/h) wins when set; otherwise a multiplier scales the current speed. Direction
+    // is preserved. Reuses the same km/h convention as the seamless-teleport exitSpeed remap.
+    private void ApplyBoost(Rigidbody body)
+    {
+        var velocity = body.velocity;
+        if (targetSpeed > 0f)
+        {
+            var speedMps = targetSpeed / 3.6f;
+            velocity = velocity.sqrMagnitude > 1e-6f
+                ? velocity.normalized * speedMps
+                : transform.forward * speedMps;
+        }
+        else if (speedMultiplier > 0f)
+        {
+            velocity *= speedMultiplier;
+        }
+
+        body.velocity = velocity;
     }
 
     // Picks a destination marker and computes where/how the drone should arrive. For a plain
