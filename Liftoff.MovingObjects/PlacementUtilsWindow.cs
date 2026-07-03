@@ -39,6 +39,7 @@ internal class PlacementUtilsWindow : MonoBehaviour
     private Button _triggerLinksButton;
     private GameObject _triggerLinkObject;
     private bool _triggerLinksEnabled;
+    private Button _duplicateButton;
 
     public Assets assets;
 
@@ -186,6 +187,22 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
         _triggerLinksButton = new Button(ToggleTriggerLinks) { text = "Toggle trigger links", focusable = false };
         _root.Add(_triggerLinksButton);
+
+        _duplicateButton = new Button(DuplicateSelected) { text = "Duplicate item", focusable = false };
+        _root.Add(_duplicateButton);
+    }
+
+    // Single-item duplicate built on the ItemSpawner spike: clone the selected item at a one-grid
+    // offset, carrying its MO config with a fresh group id. The primitive that unblocks
+    // multi-object copy/paste and array/mirror.
+    private void DuplicateSelected()
+    {
+        if (_selectedItem?.blueprint == null)
+            return;
+
+        var step = Shared.PlacementUtils.GridRound > 0 ? Shared.PlacementUtils.GridRound : 1f;
+        ItemSpawner.Duplicate(_selectedItem.blueprint, new Vector3(step, 0f, 0f));
+        Shared.Editor.RequestRefreshGui();
     }
 
     private void RunLint()

@@ -491,9 +491,9 @@ internal class AnimationEditorWindow : MonoBehaviour
 
     private void CopyConfig()
     {
-        Shared.Clipboard.animationOptions = (MO_AnimationOptions)DeepClone(options);
-        Shared.Clipboard.animationSteps = (List<MO_Animation>)DeepClone(steps);
-        Shared.Clipboard.triggerOptions = (MO_TriggerOptions)DeepClone(trigger);
+        Shared.Clipboard.animationOptions = CloneUtils.DeepClone(options);
+        Shared.Clipboard.animationSteps = CloneUtils.DeepClone(steps);
+        Shared.Clipboard.triggerOptions = CloneUtils.DeepClone(trigger);
         RefreshGui();
     }
 
@@ -502,35 +502,10 @@ internal class AnimationEditorWindow : MonoBehaviour
         if (!Shared.Clipboard.HasData || _blueprint == null)
             return;
 
-        _blueprint.mo_animationOptions = (MO_AnimationOptions)DeepClone(Shared.Clipboard.animationOptions);
-        _blueprint.mo_animationSteps = (List<MO_Animation>)DeepClone(Shared.Clipboard.animationSteps);
-        _blueprint.mo_triggerOptions = (MO_TriggerOptions)DeepClone(Shared.Clipboard.triggerOptions);
+        _blueprint.mo_animationOptions = CloneUtils.DeepClone(Shared.Clipboard.animationOptions);
+        _blueprint.mo_animationSteps = CloneUtils.DeepClone(Shared.Clipboard.animationSteps);
+        _blueprint.mo_triggerOptions = CloneUtils.DeepClone(Shared.Clipboard.triggerOptions);
         RefreshGui();
-    }
-
-    // Generic deep clone by reflection: structs/strings are copied by value, lists element-wise,
-    // and reference types field-by-field. Covers every current and future MO_* field automatically.
-    private static object DeepClone(object src)
-    {
-        if (src == null)
-            return null;
-
-        var type = src.GetType();
-        if (type.IsValueType || type == typeof(string))
-            return src;
-
-        if (src is IList list)
-        {
-            var cloneList = (IList)Activator.CreateInstance(type);
-            foreach (var item in list)
-                cloneList.Add(DeepClone(item));
-            return cloneList;
-        }
-
-        var dst = Activator.CreateInstance(type);
-        foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
-            field.SetValue(dst, DeepClone(field.GetValue(src)));
-        return dst;
     }
 
     private void OnPlayAnimationClicked()
