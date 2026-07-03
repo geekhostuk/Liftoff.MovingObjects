@@ -44,6 +44,7 @@ internal class AnimationEditorWindow : MonoBehaviour
     private TextField _exitSpeedField;
     private Toggle _triggerOnceToggle;
     private TextField _triggerCooldownField;
+    private Toggle _sequentialTargetsToggle;
     private DropdownField _triggerActionField;
     private DropdownField _easingField;
     private Toggle _pingPongToggle;
@@ -190,6 +191,10 @@ internal class AnimationEditorWindow : MonoBehaviour
         _triggerCooldownField = new TextField("Cooldown (s):") { maxLength = 16 };
         GuiUtils.ConvertToFloatField(_triggerCooldownField, f => trigger.triggerCooldown = f);
         targetSection.Add(_triggerCooldownField);
+
+        _sequentialTargetsToggle = new Toggle("Sequential targets") { focusable = false };
+        _sequentialTargetsToggle.RegisterValueChangedCallback(evt => trigger.sequentialTargets = evt.newValue);
+        targetSection.Add(_sequentialTargetsToggle);
     }
 
     // Same code-added pattern as EnsureTeleportControls, but for the Trigger action dropdown
@@ -395,6 +400,8 @@ internal class AnimationEditorWindow : MonoBehaviour
                 _triggerOnceToggle.SetValueWithoutNotify(trigger.triggerOnce);
             if (_triggerCooldownField != null)
                 _triggerCooldownField.SetValueWithoutNotify(GuiUtils.FloatToString(trigger.triggerCooldown));
+            if (_sequentialTargetsToggle != null)
+                _sequentialTargetsToggle.SetValueWithoutNotify(trigger.sequentialTargets);
         }
 
         var animationBox = _root.Q<GroupBox>("animation-box");

@@ -302,6 +302,7 @@ public sealed class Plugin : BaseUnityPlugin
                 trigger.exitSpeed = options.exitSpeed;
                 trigger.triggerOnce = options.triggerOnce;
                 trigger.triggerCooldown = options.triggerCooldown;
+                trigger.sequentialTargets = options.sequentialTargets;
             }
         }
 

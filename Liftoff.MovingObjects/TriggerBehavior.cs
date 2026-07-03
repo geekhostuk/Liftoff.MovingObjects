@@ -45,9 +45,11 @@ internal class TriggerBehavior : MonoBehaviour
 
     public bool triggerOnce;
     public float triggerCooldown;
+    public bool sequentialTargets;
 
     private bool _hasFiredOnce;
     private float _cooldownUntil;
+    private int _sequentialIndex;
 
     private void Start()
     {
@@ -130,7 +132,7 @@ internal class TriggerBehavior : MonoBehaviour
     // facing carrying its momentum — optionally rescaled to exitSpeed (km/h; 0 = keep speed).
     private void QueueTeleport(Rigidbody body)
     {
-        var target = _teleportTargets[Random.Range(0, _teleportTargets.Length)];
+        var target = SelectTarget();
 
         _teleportDrone = body;
         _teleportPos = target.position;
@@ -158,6 +160,20 @@ internal class TriggerBehavior : MonoBehaviour
         _teleportVel = exitVel;
         _teleportRot = entryToExit * body.rotation;
         _teleportApplyMotion = true;
+    }
+
+    // Choose which exit marker (when several share the target name) the drone teleports to.
+    // Sequential cycles through them in order for predictable multi-exit routing; otherwise a
+    // random one is picked (scatter portal).
+    private Transform SelectTarget()
+    {
+        if (_teleportTargets.Length == 1)
+            return _teleportTargets[0];
+
+        if (sequentialTargets)
+            return _teleportTargets[_sequentialIndex++ % _teleportTargets.Length];
+
+        return _teleportTargets[Random.Range(0, _teleportTargets.Length)];
     }
 
     public void OnTriggerEnter(Collider other)
@@ -254,5 +270,6 @@ internal class TriggerBehavior : MonoBehaviour
         _sweptTriggered = false;
         _hasFiredOnce = false;
         _cooldownUntil = 0f;
+        _sequentialIndex = 0;
     }
 }
