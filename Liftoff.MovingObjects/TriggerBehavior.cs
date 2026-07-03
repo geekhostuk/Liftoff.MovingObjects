@@ -126,6 +126,12 @@ internal class TriggerBehavior : MonoBehaviour
         var src = transform.parent != null ? transform.parent : transform;
         var entryToExit = target.rotation * Quaternion.Inverse(src.rotation);
 
+        // Re-express the drone's entry offset in the destination's frame so it exits at the same
+        // spot within the portal it entered. The offset is measured about src.position (not
+        // transform.position) to match the frame entryToExit is defined about — otherwise a
+        // parented trigger rotates the offset about the wrong pivot and lands off-target.
+        _teleportPos = target.position + entryToExit * (body.position - src.position);
+
         var exitVel = entryToExit * body.velocity;
         if (exitSpeed > 0f)
         {

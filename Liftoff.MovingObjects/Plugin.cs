@@ -154,6 +154,13 @@ public sealed class Plugin : BaseUnityPlugin
         _hookedFlightManager = __instance;
         __instance.onDroneResetStart += OnDroneResetStart;
         __instance.onDroneResetDone += OnDroneResetDone;
+
+        // Report the physics step actually in force during flight. Trigger/checkpoint
+        // detection is capped at this rate (see TriggerBehavior), so knowing it explains
+        // detection granularity. Logged here rather than at plugin load because the menu
+        // scene may run a different fixedDeltaTime than flight.
+        Log.LogInfo(
+            $"Physics step: fixedDeltaTime={Time.fixedDeltaTime:F5}s ({1f / Time.fixedDeltaTime:F1} Hz)");
     }
 
     private static void OnDroneResetStart()
