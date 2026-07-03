@@ -46,6 +46,19 @@ internal sealed class AnimationPlayer : MonoBehaviour
 
     private void Start()
     {
+        EnsureInitialized();
+
+        if (!waitForTrigger)
+            StartMotion();
+    }
+
+    // Idempotent one-time setup (steps cache, kinematic body, initial pose). Shared by Start and
+    // the editor scrubber, which may call SampleAt before Start has run.
+    private void EnsureInitialized()
+    {
+        if (_rigidBody != null)
+            return;
+
         _stepsCached = steps.Select(animation => new Step(animation)).ToArray();
         _reversedCached = BuildReversed(_stepsCached);
         _rigidBody = gameObject.AddComponent<Rigidbody>();
@@ -53,9 +66,59 @@ internal sealed class AnimationPlayer : MonoBehaviour
 
         _initPosition = transform.position;
         _initRotation = transform.rotation;
+    }
 
-        if (!waitForTrigger)
-            StartMotion();
+    // Editor timeline scrubber: pose the object at a normalized [0,1] point along the cumulative
+    // step timeline (delays + durations), driven directly rather than by the coroutine, so a
+    // mapper can find the exact frame a platform blocks a gap. Uses the same easing as playback.
+    public void SampleAt(float normalizedTime)
+    {
+        EnsureInitialized();
+        if (_stepsCached.Length == 0)
+            return;
+
+        var total = 0f;
+        foreach (var step in _stepsCached)
+            total += Mathf.Max(0f, step.Delay) + Mathf.Max(0f, step.Time);
+
+        var lastStep = _stepsCached[_stepsCached.Length - 1];
+        if (total <= 0f)
+        {
+            MoveRigidBody(lastStep.Position, lastStep.Rotation);
+            return;
+        }
+
+        var targetTime = Mathf.Clamp01(normalizedTime) * total;
+        var elapsed = 0f;
+        var startPosition = _initPosition;
+        var startRotation = _initRotation;
+
+        for (var i = 0; i < _stepsCached.Length; i++)
+        {
+            var step = _stepsCached[i];
+            var delay = Mathf.Max(0f, step.Delay);
+            var time = Mathf.Max(0f, step.Time);
+
+            if (targetTime <= elapsed + delay)
+            {
+                MoveRigidBody(startPosition, startRotation);
+                return;
+            }
+            elapsed += delay;
+
+            if (targetTime <= elapsed + time)
+            {
+                var t = time > 0f ? Ease(options.easingMode, (targetTime - elapsed) / time) : 1f;
+                MoveRigidBody(Vector3.Lerp(startPosition, step.Position, t),
+                    Quaternion.Lerp(startRotation, step.Rotation, t));
+                return;
+            }
+            elapsed += time;
+            startPosition = step.Position;
+            startRotation = step.Rotation;
+        }
+
+        MoveRigidBody(lastStep.Position, lastStep.Rotation);
     }
 
     // Route between the keyframe coroutine and continuous procedural motion, applying a one-time

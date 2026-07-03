@@ -12,6 +12,7 @@ using UnityEngine.UIElements;
 using static Liftoff.FlightControllers.FlightMode;
 using Button = UnityEngine.UIElements.Button;
 using Logger = BepInEx.Logging.Logger;
+using Slider = UnityEngine.UIElements.Slider;
 using Toggle = UnityEngine.UIElements.Toggle;
 
 namespace Liftoff.MovingObjects;
@@ -82,6 +83,9 @@ internal class AnimationEditorWindow : MonoBehaviour
     private Button _pathPreviewButton;
     private GameObject _pathPreviewObject;
     private bool _pathPreviewEnabled;
+    private Slider _scrubSlider;
+    private GameObject _scrubObject;
+    private AnimationPlayer _scrubPlayer;
     private TextField _launchImpulseXField;
     private TextField _launchImpulseYField;
     private TextField _launchImpulseZField;
@@ -349,6 +353,40 @@ internal class AnimationEditorWindow : MonoBehaviour
 
         _pathPreviewButton = new Button(TogglePathPreview) { text = "Toggle path preview", focusable = false };
         animationBox.Add(_pathPreviewButton);
+
+        _scrubSlider = new Slider("Scrub:", 0f, 1f) { focusable = false };
+        _scrubSlider.RegisterValueChangedCallback(evt => ScrubTo(evt.newValue));
+        animationBox.Add(_scrubSlider);
+    }
+
+    // Timeline scrubber: drives a dedicated preview clone to the slider's normalized time via
+    // AnimationPlayer.SampleAt. The clone captures the steps at creation; deselect/reselect to
+    // pick up later step edits. Torn down alongside the other previews.
+    private void ScrubTo(float normalizedTime)
+    {
+        if (_blueprint == null || steps == null || steps.Count == 0)
+            return;
+
+        StopAnimation();
+        if (_scrubObject == null)
+        {
+            _scrubObject = CreateTempObj();
+            _scrubPlayer = _scrubObject.AddComponent<AnimationPlayer>();
+            _scrubPlayer.steps = new List<MO_Animation>(steps);
+            _scrubPlayer.options = options;
+            _scrubPlayer.waitForTrigger = true; // don't auto-play; we pose it manually
+        }
+
+        _scrubPlayer.SampleAt(normalizedTime);
+    }
+
+    private void DestroyScrub()
+    {
+        if (_scrubObject == null)
+            return;
+        Destroy(_scrubObject);
+        _scrubObject = null;
+        _scrubPlayer = null;
     }
 
     private void TogglePathPreview()
@@ -663,6 +701,7 @@ internal class AnimationEditorWindow : MonoBehaviour
                 GuiUtils.SetVisible(animationBox, false);
                 GuiUtils.SetVisible(physicsBox, true);
                 DestroyPathPreview();
+                DestroyScrub();
 
                 _root.Q<TextField>("physics-time").value = GuiUtils.FloatToString(options.simulatePhysicsTime);
                 _root.Q<TextField>("physics-delay").value = GuiUtils.FloatToString(options.simulatePhysicsDelay);
@@ -696,6 +735,7 @@ internal class AnimationEditorWindow : MonoBehaviour
                 GuiUtils.SetVisible(animationBox, false);
                 GuiUtils.SetVisible(physicsBox, false);
                 DestroyPathPreview();
+                DestroyScrub();
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(currentType), currentType, null);
@@ -816,6 +856,7 @@ internal class AnimationEditorWindow : MonoBehaviour
         StopAnimation();
         StopSimulation();
         DestroyPathPreview();
+        DestroyScrub();
         _blueprint = null;
         Shared.Editor.ItemCleared();
         Log.LogInfo("Item unselected");
@@ -826,6 +867,7 @@ internal class AnimationEditorWindow : MonoBehaviour
         StopAnimation();
         StopSimulation();
         DestroyPathPreview();
+        DestroyScrub();
     }
 
     private GameObject CreateTempObj()
@@ -861,6 +903,7 @@ internal class AnimationEditorWindow : MonoBehaviour
     {
         Log.LogWarning($"Animation start: {_item.gameObject} at {_item.transform.position}");
 
+        DestroyScrub();
         _tempAnimationObject = CreateTempObj();
         var player = _tempAnimationObject.AddComponent<AnimationPlayer>();
         player.steps = new List<MO_Animation>(_blueprint.mo_animationSteps);
