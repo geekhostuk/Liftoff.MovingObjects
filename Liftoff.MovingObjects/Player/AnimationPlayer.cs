@@ -30,9 +30,16 @@ internal sealed class AnimationPlayer : MonoBehaviour
     private Step[] _stepsCached;
     private Step[] _reversedCached;
 
+    private bool _continuousActive;
+    private float _spinAngle;
+
     public MO_AnimationOptions options;
     public List<MO_Animation> steps;
     public bool waitForTrigger;
+
+    // Continuous procedural motion (spinner) is driven every frame from Update() rather than the
+    // keyframe coroutine, so authoring endless rotation doesn't require dozens of tiny steps.
+    private bool ContinuousMode => options.spinnerEnabled;
 
     private void Start()
     {
@@ -45,7 +52,40 @@ internal sealed class AnimationPlayer : MonoBehaviour
         _initRotation = transform.rotation;
 
         if (!waitForTrigger)
+            StartMotion();
+    }
+
+    // Route between the keyframe coroutine and continuous procedural motion.
+    private void StartMotion()
+    {
+        if (ContinuousMode)
+        {
+            _spinAngle = 0f;
+            _continuousActive = true;
+        }
+        else
+        {
             StartAnimationLoop();
+        }
+    }
+
+    private void Update()
+    {
+        if (!_continuousActive || _rigidBody == null)
+            return;
+
+        _spinAngle += options.spinSpeed * Time.deltaTime;
+
+        var axis = ToVector3(options.spinAxis);
+        if (axis.sqrMagnitude < 1e-6f)
+            axis = Vector3.up;
+
+        MoveRigidBody(_initPosition, _initRotation * Quaternion.AngleAxis(_spinAngle, axis.normalized));
+    }
+
+    private static Vector3 ToVector3(SerializableVector3 v)
+    {
+        return new Vector3(v.x, v.y, v.z);
     }
 
     private void StartAnimationLoop()
@@ -157,7 +197,7 @@ internal sealed class AnimationPlayer : MonoBehaviour
 
         if (waitForTrigger && !triggered)
             return;
-        StartAnimationLoop();
+        StartMotion();
     }
 
     public void Trigger()
@@ -182,12 +222,18 @@ internal sealed class AnimationPlayer : MonoBehaviour
             StopCoroutine(_animationCoroutine);
             _animationCoroutine = null;
         }
+
+        // Freeze continuous motion where it is (no snap back), mirroring the keyframe behaviour.
+        _continuousActive = false;
     }
 
     private void Stop()
     {
         if (_animationCoroutine != null)
             StopCoroutine(_animationCoroutine);
+
+        _continuousActive = false;
+        _spinAngle = 0f;
 
         // Snap the transform directly, not just the rigidbody. Setting position/rotation on a
         // kinematic Rigidbody is deferred to the next physics step, so transform.position would

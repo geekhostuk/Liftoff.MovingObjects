@@ -79,6 +79,11 @@ namespace Liftoff.MovingObjects.Patcher
                 assembly.MainModule.ImportReference(typeof(int)));
             AddSerializableField(assembly, animationOptsType, "pingPong",
                 assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, animationOptsType, "spinnerEnabled",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, animationOptsType, "spinAxis", vectorType);
+            AddSerializableField(assembly, animationOptsType, "spinSpeed",
+                assembly.MainModule.ImportReference(typeof(float)));
 
 
             var triggerType = AddSerializableType(assembly, "MO_TriggerOptions");

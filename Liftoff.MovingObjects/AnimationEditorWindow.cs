@@ -45,6 +45,11 @@ internal class AnimationEditorWindow : MonoBehaviour
     private DropdownField _triggerActionField;
     private DropdownField _easingField;
     private Toggle _pingPongToggle;
+    private Toggle _spinnerToggle;
+    private TextField _spinAxisXField;
+    private TextField _spinAxisYField;
+    private TextField _spinAxisZField;
+    private TextField _spinSpeedField;
 
     public Assets assets;
 
@@ -197,6 +202,28 @@ internal class AnimationEditorWindow : MonoBehaviour
         _pingPongToggle = new Toggle("Ping-pong") { focusable = false };
         _pingPongToggle.RegisterValueChangedCallback(evt => options.pingPong = evt.newValue);
         animationBox.Add(_pingPongToggle);
+
+        _spinnerToggle = new Toggle("Spinner (constant rotation)") { focusable = false };
+        _spinnerToggle.RegisterValueChangedCallback(evt => options.spinnerEnabled = evt.newValue);
+        animationBox.Add(_spinnerToggle);
+
+        _spinAxisXField = MakeFloatField("Spin axis X:", f => options.spinAxis.x = f);
+        _spinAxisYField = MakeFloatField("Spin axis Y:", f => options.spinAxis.y = f);
+        _spinAxisZField = MakeFloatField("Spin axis Z:", f => options.spinAxis.z = f);
+        animationBox.Add(_spinAxisXField);
+        animationBox.Add(_spinAxisYField);
+        animationBox.Add(_spinAxisZField);
+
+        _spinSpeedField = MakeFloatField("Spin speed (deg/s):", f => options.spinSpeed = f);
+        animationBox.Add(_spinSpeedField);
+    }
+
+    // Small helper for the many code-added, validated float fields the options panels need.
+    private static TextField MakeFloatField(string label, Action<float> onChange)
+    {
+        var field = new TextField(label) { maxLength = 16 };
+        GuiUtils.ConvertToFloatField(field, onChange);
+        return field;
     }
 
     private void OnPlayAnimationClicked()
@@ -294,6 +321,14 @@ internal class AnimationEditorWindow : MonoBehaviour
                     _easingField.SetValueWithoutNotify(((MO_Easing)options.easingMode).ToString());
                 if (_pingPongToggle != null)
                     _pingPongToggle.SetValueWithoutNotify(options.pingPong);
+                if (_spinnerToggle != null)
+                {
+                    _spinnerToggle.SetValueWithoutNotify(options.spinnerEnabled);
+                    _spinAxisXField.SetValueWithoutNotify(GuiUtils.FloatToString(options.spinAxis.x));
+                    _spinAxisYField.SetValueWithoutNotify(GuiUtils.FloatToString(options.spinAxis.y));
+                    _spinAxisZField.SetValueWithoutNotify(GuiUtils.FloatToString(options.spinAxis.z));
+                    _spinSpeedField.SetValueWithoutNotify(GuiUtils.FloatToString(options.spinSpeed));
+                }
 
                 GuiUtils.SetVisible(_root.Q<Label>("animation-steps-empty"), steps.Count == 0);
 
