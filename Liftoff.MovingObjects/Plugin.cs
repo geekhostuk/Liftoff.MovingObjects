@@ -145,6 +145,9 @@ public sealed class Plugin : BaseUnityPlugin
     // postfix on FlightManager.Start, which is reliably called once per flight session.
     private static FlightManager _hookedFlightManager;
 
+    // Exposed so HazardContact can crash the drone via the active flight manager.
+    internal static FlightManager HookedFlightManager => _hookedFlightManager;
+
     [HarmonyPostfix]
     [HarmonyPatch(typeof(FlightManager), "Start")]
     private static void OnFlightManagerStart(FlightManager __instance)
@@ -335,6 +338,11 @@ public sealed class Plugin : BaseUnityPlugin
                 AddPhysics(blueprint, flag, waitForTrigger);
             else if (blueprint?.mo_animationSteps?.Count > 0)
                 AddAnimation(blueprint, flag, waitForTrigger);
+
+            // Hazard-on-contact turns the moving object into a drone-killer (idempotent).
+            if (blueprint?.mo_animationOptions?.killOnContact == true &&
+                flag.gameObject.GetComponent<HazardContact>() == null)
+                flag.gameObject.AddComponent<HazardContact>();
         }
     }
 

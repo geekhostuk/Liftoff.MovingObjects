@@ -109,6 +109,8 @@ namespace Liftoff.MovingObjects.Patcher
                 assembly.MainModule.ImportReference(typeof(float)));
             AddSerializableField(assembly, animationOptsType, "mass",
                 assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "killOnContact",
+                assembly.MainModule.ImportReference(typeof(bool)));
 
 
             var triggerType = AddSerializableType(assembly, "MO_TriggerOptions");

@@ -74,6 +74,8 @@ internal class AnimationEditorWindow : MonoBehaviour
     private Toggle _orbitFacePathToggle;
     private TextField _phaseOffsetField;
     private Toggle _randomizePhaseToggle;
+    private Toggle _killOnContactAnimToggle;
+    private Toggle _killOnContactPhysToggle;
     private TextField _launchImpulseXField;
     private TextField _launchImpulseYField;
     private TextField _launchImpulseZField;
@@ -334,6 +336,10 @@ internal class AnimationEditorWindow : MonoBehaviour
         _randomizePhaseToggle = new Toggle("Randomize phase") { focusable = false };
         _randomizePhaseToggle.RegisterValueChangedCallback(evt => options.randomizePhase = evt.newValue);
         animationBox.Add(_randomizePhaseToggle);
+
+        _killOnContactAnimToggle = new Toggle("Kill drone on contact") { focusable = false };
+        _killOnContactAnimToggle.RegisterValueChangedCallback(evt => options.killOnContact = evt.newValue);
+        animationBox.Add(_killOnContactAnimToggle);
     }
 
     // Home for all physics-box controls added in code (same idempotent contract as the animation
@@ -373,6 +379,10 @@ internal class AnimationEditorWindow : MonoBehaviour
         physicsBox.Add(_linearDragField);
         physicsBox.Add(_angularDragField);
         physicsBox.Add(_massField);
+
+        _killOnContactPhysToggle = new Toggle("Kill drone on contact") { focusable = false };
+        _killOnContactPhysToggle.RegisterValueChangedCallback(evt => options.killOnContact = evt.newValue);
+        physicsBox.Add(_killOnContactPhysToggle);
     }
 
     // Small helper for the many code-added, validated float fields the options panels need.
@@ -528,6 +538,7 @@ internal class AnimationEditorWindow : MonoBehaviour
                 {
                     _phaseOffsetField.SetValueWithoutNotify(GuiUtils.FloatToString(options.phaseOffset));
                     _randomizePhaseToggle.SetValueWithoutNotify(options.randomizePhase);
+                    _killOnContactAnimToggle.SetValueWithoutNotify(options.killOnContact);
                 }
 
                 GuiUtils.SetVisible(_root.Q<Label>("animation-steps-empty"), steps.Count == 0);
@@ -562,6 +573,7 @@ internal class AnimationEditorWindow : MonoBehaviour
                     _linearDragField.SetValueWithoutNotify(GuiUtils.FloatToString(options.linearDrag));
                     _angularDragField.SetValueWithoutNotify(GuiUtils.FloatToString(options.angularDrag));
                     _massField.SetValueWithoutNotify(GuiUtils.FloatToString(options.mass));
+                    _killOnContactPhysToggle.SetValueWithoutNotify(options.killOnContact);
                 }
 
                 var physicsPlay = _root.Q<Button>("physics-play");
