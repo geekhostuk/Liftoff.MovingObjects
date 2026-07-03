@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Reflection;
 using BepInEx.Logging;
 using Liftoff.MovingObjects.Player;
 using UnityEngine;
@@ -59,6 +60,13 @@ internal class TriggerBehavior : MonoBehaviour
     public bool routeBySpeed;
     public float routeSpeedThreshold;
 
+    public bool playSoundOnTrigger;
+    private TrackItemPlaySoundTrigger[] _soundTriggers;
+
+    // PlaySoundFile is non-public on the native item, so it's driven by reflection.
+    private static readonly MethodInfo PlaySoundMethod = typeof(TrackItemPlaySoundTrigger)
+        .GetMethod("PlaySoundFile", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
     private bool _hasFiredOnce;
     private float _cooldownUntil;
     private int _sequentialIndex;
@@ -75,6 +83,12 @@ internal class TriggerBehavior : MonoBehaviour
         _animationPlayers = targetTriggers.Select(t => t.GetComponent<AnimationPlayer>()).Where(p => p != null)
             .ToArray();
         _physicsPlayers = targetTriggers.Select(t => t.GetComponent<PhysicsPlayer>()).Where(p => p != null).ToArray();
+
+        // Sound-on-trigger reuses the same name matching: give a native TrackItemPlaySoundTrigger
+        // a trigger Name equal to this entrance's Target and its configured sound plays on pass.
+        if (playSoundOnTrigger)
+            _soundTriggers = targetTriggers.Select(t => t.GetComponent<TrackItemPlaySoundTrigger>())
+                .Where(p => p != null).ToArray();
 
         Log.LogDebug(
             $"Detected {_animationPlayers.Length} animations and {_physicsPlayers.Length} physics for '{triggerTarget}' trigger");
@@ -136,6 +150,11 @@ internal class TriggerBehavior : MonoBehaviour
 
         if (boostEnabled && body != null)
             ApplyBoost(body);
+
+        if (playSoundOnTrigger && _soundTriggers != null && PlaySoundMethod != null)
+            foreach (var sound in _soundTriggers)
+                if (sound != null)
+                    PlaySoundMethod.Invoke(sound, null);
 
         return true;
     }

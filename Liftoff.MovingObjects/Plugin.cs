@@ -314,6 +314,7 @@ public sealed class Plugin : BaseUnityPlugin
                 trigger.forceLocalSpace = options.forceLocalSpace;
                 trigger.routeBySpeed = options.routeBySpeed;
                 trigger.routeSpeedThreshold = options.routeSpeedThreshold;
+                trigger.playSoundOnTrigger = options.playSoundOnTrigger;
             }
         }
 
