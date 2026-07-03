@@ -57,6 +57,8 @@ internal class AnimationEditorWindow : MonoBehaviour
     private TextField _orbitAxisYField;
     private TextField _orbitAxisZField;
     private Toggle _orbitFacePathToggle;
+    private TextField _phaseOffsetField;
+    private Toggle _randomizePhaseToggle;
 
     public Assets assets;
 
@@ -242,6 +244,13 @@ internal class AnimationEditorWindow : MonoBehaviour
         _orbitFacePathToggle = new Toggle("Face along path") { focusable = false };
         _orbitFacePathToggle.RegisterValueChangedCallback(evt => options.orbitFacePath = evt.newValue);
         animationBox.Add(_orbitFacePathToggle);
+
+        _phaseOffsetField = MakeFloatField("Phase offset (s):", f => options.phaseOffset = f);
+        animationBox.Add(_phaseOffsetField);
+
+        _randomizePhaseToggle = new Toggle("Randomize phase") { focusable = false };
+        _randomizePhaseToggle.RegisterValueChangedCallback(evt => options.randomizePhase = evt.newValue);
+        animationBox.Add(_randomizePhaseToggle);
     }
 
     // Small helper for the many code-added, validated float fields the options panels need.
@@ -364,6 +373,11 @@ internal class AnimationEditorWindow : MonoBehaviour
                     _orbitAxisYField.SetValueWithoutNotify(GuiUtils.FloatToString(options.orbitAxis.y));
                     _orbitAxisZField.SetValueWithoutNotify(GuiUtils.FloatToString(options.orbitAxis.z));
                     _orbitFacePathToggle.SetValueWithoutNotify(options.orbitFacePath);
+                }
+                if (_phaseOffsetField != null)
+                {
+                    _phaseOffsetField.SetValueWithoutNotify(GuiUtils.FloatToString(options.phaseOffset));
+                    _randomizePhaseToggle.SetValueWithoutNotify(options.randomizePhase);
                 }
 
                 GuiUtils.SetVisible(_root.Q<Label>("animation-steps-empty"), steps.Count == 0);

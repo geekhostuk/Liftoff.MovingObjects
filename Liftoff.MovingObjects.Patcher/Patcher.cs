@@ -93,6 +93,10 @@ namespace Liftoff.MovingObjects.Patcher
             AddSerializableField(assembly, animationOptsType, "orbitAxis", vectorType);
             AddSerializableField(assembly, animationOptsType, "orbitFacePath",
                 assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, animationOptsType, "phaseOffset",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "randomizePhase",
+                assembly.MainModule.ImportReference(typeof(bool)));
 
 
             var triggerType = AddSerializableType(assembly, "MO_TriggerOptions");

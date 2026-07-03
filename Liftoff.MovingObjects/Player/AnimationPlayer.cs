@@ -33,6 +33,7 @@ internal sealed class AnimationPlayer : MonoBehaviour
     private bool _continuousActive;
     private float _spinAngle;
     private float _orbitAngle;
+    private Coroutine _startDelayCoroutine;
 
     public MO_AnimationOptions options;
     public List<MO_Animation> steps;
@@ -57,8 +58,29 @@ internal sealed class AnimationPlayer : MonoBehaviour
             StartMotion();
     }
 
-    // Route between the keyframe coroutine and continuous procedural motion.
+    // Route between the keyframe coroutine and continuous procedural motion, applying a one-time
+    // phase offset first. The offset (optionally randomized within [0, phaseOffset]) desyncs a
+    // field of identical objects so they don't all move in lockstep.
     private void StartMotion()
+    {
+        var delay = options.phaseOffset;
+        if (options.randomizePhase && delay > 0f)
+            delay = Random.Range(0f, delay);
+
+        if (delay > 0f)
+            _startDelayCoroutine = StartCoroutine(StartMotionAfter(delay));
+        else
+            BeginMotion();
+    }
+
+    private IEnumerator StartMotionAfter(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        _startDelayCoroutine = null;
+        BeginMotion();
+    }
+
+    private void BeginMotion()
     {
         if (ContinuousMode)
         {
@@ -265,12 +287,22 @@ internal sealed class AnimationPlayer : MonoBehaviour
 
         // Freeze continuous motion where it is (no snap back), mirroring the keyframe behaviour.
         _continuousActive = false;
+        CancelStartDelay();
+    }
+
+    private void CancelStartDelay()
+    {
+        if (_startDelayCoroutine == null)
+            return;
+        StopCoroutine(_startDelayCoroutine);
+        _startDelayCoroutine = null;
     }
 
     private void Stop()
     {
         if (_animationCoroutine != null)
             StopCoroutine(_animationCoroutine);
+        CancelStartDelay();
 
         _continuousActive = false;
         _spinAngle = 0f;
