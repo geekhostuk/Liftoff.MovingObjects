@@ -678,6 +678,51 @@ internal class AnimationEditorWindow : MonoBehaviour
             steps.Remove(step);
             RefreshGui();
         };
+
+        // Code-added row editing (the template only had a delete button): re-capture the pose from
+        // the live gizmo, reorder, and insert — so a typo no longer means deleting and re-capturing
+        // everything after it.
+        var index = i;
+
+        var updateButton = new Button(() =>
+        {
+            step.position = new SerializableVector3(_item.transform.position);
+            step.rotation = new SerializableVector3(_item.transform.rotation.eulerAngles);
+            RefreshGui();
+        }) { text = "Update", focusable = false };
+        item.Add(updateButton);
+
+        var upButton = new Button(() =>
+        {
+            if (index <= 0)
+                return;
+            (steps[index], steps[index - 1]) = (steps[index - 1], steps[index]);
+            RefreshGui();
+        }) { text = "↑", focusable = false };
+        item.Add(upButton);
+
+        var downButton = new Button(() =>
+        {
+            if (index >= steps.Count - 1)
+                return;
+            (steps[index], steps[index + 1]) = (steps[index + 1], steps[index]);
+            RefreshGui();
+        }) { text = "↓", focusable = false };
+        item.Add(downButton);
+
+        var insertButton = new Button(() =>
+        {
+            steps.Insert(index + 1, new MO_Animation
+            {
+                delay = 0f,
+                time = 1f,
+                position = new SerializableVector3(_item.transform.position),
+                rotation = new SerializableVector3(_item.transform.rotation.eulerAngles)
+            });
+            RefreshGui();
+        }) { text = "+", focusable = false };
+        item.Add(insertButton);
+
         stepsContainer.Add(item);
     }
 
