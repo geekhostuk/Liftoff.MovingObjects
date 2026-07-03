@@ -27,6 +27,13 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
     private UIDocument _uiDocument;
 
+    private TextField _posXField;
+    private TextField _posYField;
+    private TextField _posZField;
+    private TextField _rotXField;
+    private TextField _rotYField;
+    private TextField _rotZField;
+
     public Assets assets;
 
     private void Awake()
@@ -124,6 +131,97 @@ internal class PlacementUtilsWindow : MonoBehaviour
         _root.Q<TextField>("grid-align-value").value = GuiUtils.FloatToString(Shared.PlacementUtils.GridRound);
         _root.Q<TextField>("drag-grid-align-value").value = GuiUtils.FloatToString(Shared.PlacementUtils.DragGridRound);
         _root.Q<Toggle>("enchanted-editor").value = Shared.PlacementUtils.EnchantedEditor;
+
+        EnsureTransformControls();
+    }
+
+    // Code-added numeric transform entry for the selected gizmo (the compiled UI bundle has no such
+    // fields). Same idempotent, guard-on-.parent contract as the animation window's Ensure* methods.
+    private void EnsureTransformControls()
+    {
+        if (_root == null)
+            return;
+        if (_posXField != null && _posXField.parent == _root)
+            return;
+
+        _posXField = MakeFloatField("Pos X:", v => SetGizmo(t => { var p = t.position; p.x = v; t.position = p; }));
+        _posYField = MakeFloatField("Pos Y:", v => SetGizmo(t => { var p = t.position; p.y = v; t.position = p; }));
+        _posZField = MakeFloatField("Pos Z:", v => SetGizmo(t => { var p = t.position; p.z = v; t.position = p; }));
+        _rotXField = MakeFloatField("Rot X:", v => SetGizmo(t => { var e = t.eulerAngles; e.x = v; t.eulerAngles = e; }));
+        _rotYField = MakeFloatField("Rot Y:", v => SetGizmo(t => { var e = t.eulerAngles; e.y = v; t.eulerAngles = e; }));
+        _rotZField = MakeFloatField("Rot Z:", v => SetGizmo(t => { var e = t.eulerAngles; e.z = v; t.eulerAngles = e; }));
+
+        foreach (var field in new[] { _posXField, _posYField, _posZField, _rotXField, _rotYField, _rotZField })
+            _root.Add(field);
+    }
+
+    private static TextField MakeFloatField(string label, Action<float> onChange)
+    {
+        var field = new TextField(label) { maxLength = 16 };
+        GuiUtils.ConvertToFloatField(field, onChange);
+        return field;
+    }
+
+    private static void SetGizmo(Action<Transform> apply)
+    {
+        var gizmo = GameObject.Find("TrackEditorGizmo");
+        if (gizmo != null)
+            apply(gizmo.transform);
+    }
+
+    // Reflect the gizmo's current transform into the numeric fields, skipping any the user is
+    // editing so their typing isn't clobbered.
+    private void RefreshTransformFields()
+    {
+        if (_posXField == null)
+            return;
+        var gizmo = GameObject.Find("TrackEditorGizmo");
+        if (gizmo == null)
+            return;
+
+        var pos = gizmo.transform.position;
+        var rot = gizmo.transform.eulerAngles;
+        SetIfNotFocused(_posXField, pos.x);
+        SetIfNotFocused(_posYField, pos.y);
+        SetIfNotFocused(_posZField, pos.z);
+        SetIfNotFocused(_rotXField, rot.x);
+        SetIfNotFocused(_rotYField, rot.y);
+        SetIfNotFocused(_rotZField, rot.z);
+    }
+
+    private static void SetIfNotFocused(TextField field, float value)
+    {
+        if (field.panel?.focusController?.focusedElement == field)
+            return;
+        field.SetValueWithoutNotify(GuiUtils.FloatToString(value));
+    }
+
+    // Arrow-key nudge of the gizmo by the grid step (Shift = vertical). Suppressed while a text
+    // field is focused so the arrows edit text instead.
+    private void NudgeGizmo()
+    {
+        if (_root?.panel?.focusController?.focusedElement is TextField)
+            return;
+
+        var gizmo = GameObject.Find("TrackEditorGizmo");
+        if (gizmo == null)
+            return;
+
+        var step = Shared.PlacementUtils.GridRound > 0 ? Shared.PlacementUtils.GridRound : 1f;
+        var shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+        var delta = Vector3.zero;
+
+        if (Input.GetKeyDown(KeyCode.LeftArrow))
+            delta.x -= step;
+        if (Input.GetKeyDown(KeyCode.RightArrow))
+            delta.x += step;
+        if (Input.GetKeyDown(KeyCode.UpArrow))
+            delta += shift ? Vector3.up * step : Vector3.forward * step;
+        if (Input.GetKeyDown(KeyCode.DownArrow))
+            delta += shift ? Vector3.down * step : Vector3.back * step;
+
+        if (delta != Vector3.zero)
+            gizmo.transform.position += delta;
     }
 
     private void Update()
@@ -136,6 +234,10 @@ internal class PlacementUtilsWindow : MonoBehaviour
             ToggleWireframe();
         else if (_root != null && Input.GetKeyDown(KeyCode.F2))
             GuiUtils.ToggleVisible(_root);
+
+        RefreshTransformFields();
+        NudgeGizmo();
+
         if (!Shared.PlacementUtils.EnchantedEditor)
             return;
 
