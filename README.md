@@ -22,6 +22,32 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.2.0
+
+A large feature release implementing the remaining `ideas.md` backlog. Grouped by system:
+
+- **Animation** — easing curves (SmoothStep / ease in/out), ping-pong / yo-yo playback, a
+  spinner (constant-rotation) mode, an orbit / circular-path mode, and a per-object phase offset
+  (with randomize) to desync fields of identical objects.
+- **Physics** — an initial launch impulse/torque, and gravity-scale / drag / mass overrides
+  (floaty, heavy, or anti-gravity bodies). **Grouped physics now works** (compound body on the
+  group root).
+- **Triggers & teleports** — one-shot / cooldown gates, sequential vs random exit markers,
+  boost / brake gates (in-place speed rescale), wind / force volumes, speed-based routing,
+  sound-on-trigger (drives the native sound item), and hazard-on-contact (kills the drone).
+- **Editor authoring** — copy/paste of MO config between objects, editable / reorderable
+  animation steps, an animation path preview, a timeline scrubber, numeric transform entry +
+  arrow-key nudge, trigger/portal validation (lint), on-demand object/triangle stats, and
+  in-editor trigger-link gizmos.
+- **Item spawning** — the mod can now instantiate track items from blueprints (the long-missing
+  primitive), enabling single-item **Duplicate** and **Array** placement. Multi-object
+  copy/paste, mirror, and save-to-file build on the same primitive.
+- **Workshop preview override re-enabled** — sharing a track again honours a local `preview.png`.
+
+> Note: the continuous/physics/trigger runtime behaviours and the item-spawn features compile
+> against the current game and are wired end-to-end, but should be confirmed with an in-game
+> playtest.
+
 ### New in 1.1.2
 
 - **[Trigger action: (re)start vs. stop](#trigger-action-restart-vs-stop)** — a `Restart`/`Stop` option on animations, so a trigger can now switch a running animation *off* (freeze in place), the mirror of the existing "start on trigger" behavior.
@@ -39,10 +65,10 @@ If you're looking for the original project, the commit history of new-feature wo
 - Track editor extensions (animation editor window, placement utilities) for authors.
 - Animations correctly re-bind after switching tracks within a session.
 
-### Known issues
+### Resolved in 1.2.0
 
-- **Workshop preview overwrite (`PopupShareContent.ShareItem`) is currently disabled.** The game's `ShareItem` method gained a third parameter that uses an obfuscated type, so the original 2-arg Harmony patch could not bind. HarmonyX throws on a missing target, which previously aborted *all* of the mod's patches. The patch is removed until the new third parameter type is referenceable; nothing else depends on it.
-- **Editor "Object count" / "Triangle count" always read `0`.** The placement-utils window (F2) used to refresh these stats once per second via `InvokeRepeating`, which re-scanned every object on the map and summed the triangle count across all child meshes each second — a visible stutter every second on large maps. That polling is now disabled and the labels are pinned to `0`. This only affects the two informational counters; placement, animation, physics, and triggers are unchanged.
+- **Workshop preview overwrite (`PopupShareContent.ShareItem`) is working again.** `ShareItem` has a single overload, so it is now patched by name alone (no parameter types), which binds without needing to name the obfuscated third-parameter type; the `Sprite` preview is reached positionally.
+- **Editor "Object count" / "Triangle count" no longer pinned to `0`.** Counting is restored behind an on-demand "Refresh stats" button (plus one count on window open) instead of the per-second poll that stuttered on large maps; triangle counts use `GetIndexCount` to avoid per-mesh allocations.
 
 ### Why upstream 1.0.14 stopped working
 
@@ -100,7 +126,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.1.2.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.2.0.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`
