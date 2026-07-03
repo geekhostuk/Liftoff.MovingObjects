@@ -160,13 +160,32 @@ internal class PlacementUtilsWindow : MonoBehaviour
         EnsureTransformControls();
     }
 
+    // The compiled window nests its content in a bordered panel (the "Placement utils" box).
+    // Code-added controls must live inside that panel, not on the full-screen root visual element
+    // (which is StretchToParentSize) — otherwise they render across the whole screen. Find the
+    // panel as the ancestor of a known bundle control that is a direct child of the root.
+    private VisualElement PanelContainer()
+    {
+        VisualElement known = _root.Q<Toggle>("enchanted-editor");
+        known ??= _root.Q<TextField>("grid-align-value");
+        if (known == null)
+            return _root;
+
+        var element = known.parent;
+        while (element != null && element.parent != null && element.parent != _root)
+            element = element.parent;
+        return element ?? _root;
+    }
+
     // Code-added numeric transform entry for the selected gizmo (the compiled UI bundle has no such
     // fields). Same idempotent, guard-on-.parent contract as the animation window's Ensure* methods.
     private void EnsureTransformControls()
     {
         if (_root == null)
             return;
-        if (_posXField != null && _posXField.parent == _root)
+
+        var container = PanelContainer();
+        if (_posXField != null && _posXField.parent == container)
             return;
 
         _posXField = MakeFloatField("Pos X:", v => SetGizmo(t => { var p = t.position; p.x = v; t.position = p; }));
@@ -177,29 +196,29 @@ internal class PlacementUtilsWindow : MonoBehaviour
         _rotZField = MakeFloatField("Rot Z:", v => SetGizmo(t => { var e = t.eulerAngles; e.z = v; t.eulerAngles = e; }));
 
         foreach (var field in new[] { _posXField, _posYField, _posZField, _rotXField, _rotYField, _rotZField })
-            _root.Add(field);
+            container.Add(field);
 
         _refreshStatsButton = new Button(UpdateStats) { text = "Refresh stats", focusable = false };
-        _root.Add(_refreshStatsButton);
+        container.Add(_refreshStatsButton);
 
         _lintButton = new Button(RunLint) { text = "Validate triggers", focusable = false };
-        _root.Add(_lintButton);
+        container.Add(_lintButton);
 
         _lintLabel = new Label(string.Empty) { style = { whiteSpace = WhiteSpace.Normal } };
-        _root.Add(_lintLabel);
+        container.Add(_lintLabel);
 
         _triggerLinksButton = new Button(ToggleTriggerLinks) { text = "Toggle trigger links", focusable = false };
-        _root.Add(_triggerLinksButton);
+        container.Add(_triggerLinksButton);
 
         _duplicateButton = new Button(DuplicateSelected) { text = "Duplicate item", focusable = false };
-        _root.Add(_duplicateButton);
+        container.Add(_duplicateButton);
 
         _arrayCountField = new TextField("Array count:") { maxLength = 4 };
         GuiUtils.ConvertToIntField(_arrayCountField, i => _arrayCount = i, _arrayCount);
-        _root.Add(_arrayCountField);
+        container.Add(_arrayCountField);
 
         _arrayButton = new Button(ArraySelected) { text = "Array item", focusable = false };
-        _root.Add(_arrayButton);
+        container.Add(_arrayButton);
     }
 
     // Single-item duplicate built on the ItemSpawner spike: clone the selected item at a one-grid
