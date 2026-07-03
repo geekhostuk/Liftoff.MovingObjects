@@ -97,6 +97,8 @@ namespace Liftoff.MovingObjects.Patcher
                 assembly.MainModule.ImportReference(typeof(float)));
             AddSerializableField(assembly, animationOptsType, "randomizePhase",
                 assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, animationOptsType, "launchImpulse", vectorType);
+            AddSerializableField(assembly, animationOptsType, "launchTorque", vectorType);
 
 
             var triggerType = AddSerializableType(assembly, "MO_TriggerOptions");

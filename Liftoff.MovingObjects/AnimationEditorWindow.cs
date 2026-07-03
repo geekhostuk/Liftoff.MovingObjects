@@ -59,6 +59,12 @@ internal class AnimationEditorWindow : MonoBehaviour
     private Toggle _orbitFacePathToggle;
     private TextField _phaseOffsetField;
     private Toggle _randomizePhaseToggle;
+    private TextField _launchImpulseXField;
+    private TextField _launchImpulseYField;
+    private TextField _launchImpulseZField;
+    private TextField _launchTorqueXField;
+    private TextField _launchTorqueYField;
+    private TextField _launchTorqueZField;
 
     public Assets assets;
 
@@ -253,6 +259,32 @@ internal class AnimationEditorWindow : MonoBehaviour
         animationBox.Add(_randomizePhaseToggle);
     }
 
+    // Home for all physics-box controls added in code (same idempotent contract as the animation
+    // one). Grows as new physics options are added.
+    private void EnsurePhysicsControls()
+    {
+        var physicsBox = _root.Q<GroupBox>("physics-box");
+        if (physicsBox == null)
+            return;
+
+        if (_launchImpulseXField != null && _launchImpulseXField.parent == physicsBox)
+            return;
+
+        _launchImpulseXField = MakeFloatField("Launch impulse X:", f => options.launchImpulse.x = f);
+        _launchImpulseYField = MakeFloatField("Launch impulse Y:", f => options.launchImpulse.y = f);
+        _launchImpulseZField = MakeFloatField("Launch impulse Z:", f => options.launchImpulse.z = f);
+        physicsBox.Add(_launchImpulseXField);
+        physicsBox.Add(_launchImpulseYField);
+        physicsBox.Add(_launchImpulseZField);
+
+        _launchTorqueXField = MakeFloatField("Launch torque X:", f => options.launchTorque.x = f);
+        _launchTorqueYField = MakeFloatField("Launch torque Y:", f => options.launchTorque.y = f);
+        _launchTorqueZField = MakeFloatField("Launch torque Z:", f => options.launchTorque.z = f);
+        physicsBox.Add(_launchTorqueXField);
+        physicsBox.Add(_launchTorqueYField);
+        physicsBox.Add(_launchTorqueZField);
+    }
+
     // Small helper for the many code-added, validated float fields the options panels need.
     private static TextField MakeFloatField(string label, Action<float> onChange)
     {
@@ -397,6 +429,17 @@ internal class AnimationEditorWindow : MonoBehaviour
                 _root.Q<TextField>("physics-time").value = GuiUtils.FloatToString(options.simulatePhysicsTime);
                 _root.Q<TextField>("physics-delay").value = GuiUtils.FloatToString(options.simulatePhysicsDelay);
                 _root.Q<TextField>("physics-warmup").value = GuiUtils.FloatToString(options.simulatePhysicsWarmupDelay);
+
+                EnsurePhysicsControls();
+                if (_launchImpulseXField != null)
+                {
+                    _launchImpulseXField.SetValueWithoutNotify(GuiUtils.FloatToString(options.launchImpulse.x));
+                    _launchImpulseYField.SetValueWithoutNotify(GuiUtils.FloatToString(options.launchImpulse.y));
+                    _launchImpulseZField.SetValueWithoutNotify(GuiUtils.FloatToString(options.launchImpulse.z));
+                    _launchTorqueXField.SetValueWithoutNotify(GuiUtils.FloatToString(options.launchTorque.x));
+                    _launchTorqueYField.SetValueWithoutNotify(GuiUtils.FloatToString(options.launchTorque.y));
+                    _launchTorqueZField.SetValueWithoutNotify(GuiUtils.FloatToString(options.launchTorque.z));
+                }
 
                 var physicsPlay = _root.Q<Button>("physics-play");
 

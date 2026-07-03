@@ -37,6 +37,7 @@ internal sealed class PhysicsPlayer : MonoBehaviour
                 yield return new WaitForSeconds(options.simulatePhysicsDelay);
 
             _rigidBody.isKinematic = false;
+            ApplyLaunch();
 
             if (options.simulatePhysicsTime == 0)
                 yield break;
@@ -47,6 +48,24 @@ internal sealed class PhysicsPlayer : MonoBehaviour
             if (waitForTrigger)
                 break;
         }
+    }
+
+    // Applied the instant the body goes dynamic (forces are ignored while kinematic). Both vectors
+    // are in the object's local space, so a launch "up" or "forward" tracks the object's rotation.
+    private void ApplyLaunch()
+    {
+        var impulse = ToVector3(options.launchImpulse);
+        if (impulse.sqrMagnitude > 1e-6f)
+            _rigidBody.AddForce(transform.TransformDirection(impulse), ForceMode.Impulse);
+
+        var torque = ToVector3(options.launchTorque);
+        if (torque.sqrMagnitude > 1e-6f)
+            _rigidBody.AddTorque(transform.TransformDirection(torque), ForceMode.Impulse);
+    }
+
+    private static Vector3 ToVector3(SerializableVector3 v)
+    {
+        return new Vector3(v.x, v.y, v.z);
     }
 
     private void ResetPosition()
