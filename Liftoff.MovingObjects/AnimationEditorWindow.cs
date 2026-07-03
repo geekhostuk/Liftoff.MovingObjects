@@ -79,6 +79,9 @@ internal class AnimationEditorWindow : MonoBehaviour
     private Toggle _killOnContactPhysToggle;
     private Button _copyConfigButton;
     private Button _pasteConfigButton;
+    private Button _pathPreviewButton;
+    private GameObject _pathPreviewObject;
+    private bool _pathPreviewEnabled;
     private TextField _launchImpulseXField;
     private TextField _launchImpulseYField;
     private TextField _launchImpulseZField;
@@ -343,6 +346,41 @@ internal class AnimationEditorWindow : MonoBehaviour
         _killOnContactAnimToggle = new Toggle("Kill drone on contact") { focusable = false };
         _killOnContactAnimToggle.RegisterValueChangedCallback(evt => options.killOnContact = evt.newValue);
         animationBox.Add(_killOnContactAnimToggle);
+
+        _pathPreviewButton = new Button(TogglePathPreview) { text = "Toggle path preview", focusable = false };
+        animationBox.Add(_pathPreviewButton);
+    }
+
+    private void TogglePathPreview()
+    {
+        _pathPreviewEnabled = !_pathPreviewEnabled;
+        RefreshGui();
+    }
+
+    private void UpdatePathPreview()
+    {
+        if (!_pathPreviewEnabled || steps == null || steps.Count == 0)
+        {
+            DestroyPathPreview();
+            return;
+        }
+
+        if (_pathPreviewObject == null)
+            _pathPreviewObject = new GameObject("MO_PathPreview");
+        var preview = _pathPreviewObject.GetComponent<PathPreview>() ??
+                      _pathPreviewObject.AddComponent<PathPreview>();
+
+        var positions = steps.Select(s => new Vector3(s.position.x, s.position.y, s.position.z)).ToList();
+        var rotations = steps.Select(s => Quaternion.Euler(s.rotation.x, s.rotation.y, s.rotation.z)).ToList();
+        preview.SetPath(positions, rotations);
+    }
+
+    private void DestroyPathPreview()
+    {
+        if (_pathPreviewObject == null)
+            return;
+        Destroy(_pathPreviewObject);
+        _pathPreviewObject = null;
     }
 
     // Home for all physics-box controls added in code (same idempotent contract as the animation
@@ -618,10 +656,13 @@ internal class AnimationEditorWindow : MonoBehaviour
                 stepsContainer.Clear();
                 for (var i = 0; i < steps.Count; i++)
                     AddStepElement(stepsContainer, steps[i], i);
+
+                UpdatePathPreview();
                 break;
             case Type.Physics:
                 GuiUtils.SetVisible(animationBox, false);
                 GuiUtils.SetVisible(physicsBox, true);
+                DestroyPathPreview();
 
                 _root.Q<TextField>("physics-time").value = GuiUtils.FloatToString(options.simulatePhysicsTime);
                 _root.Q<TextField>("physics-delay").value = GuiUtils.FloatToString(options.simulatePhysicsDelay);
@@ -654,6 +695,7 @@ internal class AnimationEditorWindow : MonoBehaviour
             case Type.None:
                 GuiUtils.SetVisible(animationBox, false);
                 GuiUtils.SetVisible(physicsBox, false);
+                DestroyPathPreview();
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(currentType), currentType, null);
@@ -773,6 +815,7 @@ internal class AnimationEditorWindow : MonoBehaviour
     {
         StopAnimation();
         StopSimulation();
+        DestroyPathPreview();
         _blueprint = null;
         Shared.Editor.ItemCleared();
         Log.LogInfo("Item unselected");
@@ -782,6 +825,7 @@ internal class AnimationEditorWindow : MonoBehaviour
     {
         StopAnimation();
         StopSimulation();
+        DestroyPathPreview();
     }
 
     private GameObject CreateTempObj()
