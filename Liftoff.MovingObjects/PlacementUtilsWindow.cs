@@ -33,6 +33,8 @@ internal class PlacementUtilsWindow : MonoBehaviour
     private TextField _rotXField;
     private TextField _rotYField;
     private TextField _rotZField;
+    private Button _lintButton;
+    private Label _lintLabel;
 
     public Assets assets;
 
@@ -153,6 +155,18 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
         foreach (var field in new[] { _posXField, _posYField, _posZField, _rotXField, _rotYField, _rotZField })
             _root.Add(field);
+
+        _lintButton = new Button(RunLint) { text = "Validate triggers", focusable = false };
+        _root.Add(_lintButton);
+
+        _lintLabel = new Label(string.Empty) { style = { whiteSpace = WhiteSpace.Normal } };
+        _root.Add(_lintLabel);
+    }
+
+    private void RunLint()
+    {
+        if (_lintLabel != null)
+            _lintLabel.text = string.Join("\n", EditorUtils.ValidateTriggers());
     }
 
     private static TextField MakeFloatField(string label, Action<float> onChange)
