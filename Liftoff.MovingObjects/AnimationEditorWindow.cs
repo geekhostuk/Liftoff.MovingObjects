@@ -50,6 +50,13 @@ internal class AnimationEditorWindow : MonoBehaviour
     private TextField _spinAxisYField;
     private TextField _spinAxisZField;
     private TextField _spinSpeedField;
+    private Toggle _orbitToggle;
+    private TextField _orbitRadiusField;
+    private TextField _orbitSpeedField;
+    private TextField _orbitAxisXField;
+    private TextField _orbitAxisYField;
+    private TextField _orbitAxisZField;
+    private Toggle _orbitFacePathToggle;
 
     public Assets assets;
 
@@ -216,6 +223,25 @@ internal class AnimationEditorWindow : MonoBehaviour
 
         _spinSpeedField = MakeFloatField("Spin speed (deg/s):", f => options.spinSpeed = f);
         animationBox.Add(_spinSpeedField);
+
+        _orbitToggle = new Toggle("Orbit (circular path)") { focusable = false };
+        _orbitToggle.RegisterValueChangedCallback(evt => options.orbitEnabled = evt.newValue);
+        animationBox.Add(_orbitToggle);
+
+        _orbitRadiusField = MakeFloatField("Orbit radius:", f => options.orbitRadius = f);
+        _orbitSpeedField = MakeFloatField("Orbit speed (deg/s):", f => options.orbitSpeed = f);
+        _orbitAxisXField = MakeFloatField("Orbit axis X:", f => options.orbitAxis.x = f);
+        _orbitAxisYField = MakeFloatField("Orbit axis Y:", f => options.orbitAxis.y = f);
+        _orbitAxisZField = MakeFloatField("Orbit axis Z:", f => options.orbitAxis.z = f);
+        animationBox.Add(_orbitRadiusField);
+        animationBox.Add(_orbitSpeedField);
+        animationBox.Add(_orbitAxisXField);
+        animationBox.Add(_orbitAxisYField);
+        animationBox.Add(_orbitAxisZField);
+
+        _orbitFacePathToggle = new Toggle("Face along path") { focusable = false };
+        _orbitFacePathToggle.RegisterValueChangedCallback(evt => options.orbitFacePath = evt.newValue);
+        animationBox.Add(_orbitFacePathToggle);
     }
 
     // Small helper for the many code-added, validated float fields the options panels need.
@@ -328,6 +354,16 @@ internal class AnimationEditorWindow : MonoBehaviour
                     _spinAxisYField.SetValueWithoutNotify(GuiUtils.FloatToString(options.spinAxis.y));
                     _spinAxisZField.SetValueWithoutNotify(GuiUtils.FloatToString(options.spinAxis.z));
                     _spinSpeedField.SetValueWithoutNotify(GuiUtils.FloatToString(options.spinSpeed));
+                }
+                if (_orbitToggle != null)
+                {
+                    _orbitToggle.SetValueWithoutNotify(options.orbitEnabled);
+                    _orbitRadiusField.SetValueWithoutNotify(GuiUtils.FloatToString(options.orbitRadius));
+                    _orbitSpeedField.SetValueWithoutNotify(GuiUtils.FloatToString(options.orbitSpeed));
+                    _orbitAxisXField.SetValueWithoutNotify(GuiUtils.FloatToString(options.orbitAxis.x));
+                    _orbitAxisYField.SetValueWithoutNotify(GuiUtils.FloatToString(options.orbitAxis.y));
+                    _orbitAxisZField.SetValueWithoutNotify(GuiUtils.FloatToString(options.orbitAxis.z));
+                    _orbitFacePathToggle.SetValueWithoutNotify(options.orbitFacePath);
                 }
 
                 GuiUtils.SetVisible(_root.Q<Label>("animation-steps-empty"), steps.Count == 0);

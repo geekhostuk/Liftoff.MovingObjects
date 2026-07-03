@@ -84,6 +84,15 @@ namespace Liftoff.MovingObjects.Patcher
             AddSerializableField(assembly, animationOptsType, "spinAxis", vectorType);
             AddSerializableField(assembly, animationOptsType, "spinSpeed",
                 assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "orbitEnabled",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, animationOptsType, "orbitRadius",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "orbitSpeed",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "orbitAxis", vectorType);
+            AddSerializableField(assembly, animationOptsType, "orbitFacePath",
+                assembly.MainModule.ImportReference(typeof(bool)));
 
 
             var triggerType = AddSerializableType(assembly, "MO_TriggerOptions");

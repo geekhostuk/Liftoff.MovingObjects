@@ -32,14 +32,16 @@ internal sealed class AnimationPlayer : MonoBehaviour
 
     private bool _continuousActive;
     private float _spinAngle;
+    private float _orbitAngle;
 
     public MO_AnimationOptions options;
     public List<MO_Animation> steps;
     public bool waitForTrigger;
 
-    // Continuous procedural motion (spinner) is driven every frame from Update() rather than the
-    // keyframe coroutine, so authoring endless rotation doesn't require dozens of tiny steps.
-    private bool ContinuousMode => options.spinnerEnabled;
+    // Continuous procedural motion (spinner / orbit) is driven every frame from Update() rather
+    // than the keyframe coroutine, so endless rotation or a circular path doesn't require dozens
+    // of tiny steps.
+    private bool ContinuousMode => options.spinnerEnabled || options.orbitEnabled;
 
     private void Start()
     {
@@ -61,6 +63,7 @@ internal sealed class AnimationPlayer : MonoBehaviour
         if (ContinuousMode)
         {
             _spinAngle = 0f;
+            _orbitAngle = 0f;
             _continuousActive = true;
         }
         else
@@ -74,13 +77,50 @@ internal sealed class AnimationPlayer : MonoBehaviour
         if (!_continuousActive || _rigidBody == null)
             return;
 
-        _spinAngle += options.spinSpeed * Time.deltaTime;
+        var position = _initPosition;
+        var rotation = _initRotation;
 
-        var axis = ToVector3(options.spinAxis);
-        if (axis.sqrMagnitude < 1e-6f)
-            axis = Vector3.up;
+        // Orbit: revolve about a center placed so the authored position is a point on the circle
+        // (angle 0 == _initPosition, so there's no start-of-motion jump).
+        if (options.orbitEnabled)
+        {
+            _orbitAngle += options.orbitSpeed * Time.deltaTime;
 
-        MoveRigidBody(_initPosition, _initRotation * Quaternion.AngleAxis(_spinAngle, axis.normalized));
+            var axis = ToVector3(options.orbitAxis);
+            if (axis.sqrMagnitude < 1e-6f)
+                axis = Vector3.up;
+            axis = axis.normalized;
+
+            var radial = Vector3.Cross(axis, Vector3.up);
+            if (radial.sqrMagnitude < 1e-6f)
+                radial = Vector3.Cross(axis, Vector3.right);
+            radial = radial.normalized;
+
+            var arm = radial * options.orbitRadius;
+            var center = _initPosition - arm;
+            var offset = Quaternion.AngleAxis(_orbitAngle, axis) * arm;
+            position = center + offset;
+
+            if (options.orbitFacePath)
+            {
+                var tangent = Vector3.Cross(axis, offset);
+                if (tangent.sqrMagnitude > 1e-6f)
+                    rotation = Quaternion.LookRotation(tangent.normalized, axis);
+            }
+        }
+
+        // Spinner composes on top of whatever rotation orbit produced.
+        if (options.spinnerEnabled)
+        {
+            _spinAngle += options.spinSpeed * Time.deltaTime;
+
+            var spinAxis = ToVector3(options.spinAxis);
+            if (spinAxis.sqrMagnitude < 1e-6f)
+                spinAxis = Vector3.up;
+            rotation *= Quaternion.AngleAxis(_spinAngle, spinAxis.normalized);
+        }
+
+        MoveRigidBody(position, rotation);
     }
 
     private static Vector3 ToVector3(SerializableVector3 v)
@@ -234,6 +274,7 @@ internal sealed class AnimationPlayer : MonoBehaviour
 
         _continuousActive = false;
         _spinAngle = 0f;
+        _orbitAngle = 0f;
 
         // Snap the transform directly, not just the rigidbody. Setting position/rotation on a
         // kinematic Rigidbody is deferred to the next physics step, so transform.position would
