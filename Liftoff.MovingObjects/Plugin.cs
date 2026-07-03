@@ -287,8 +287,8 @@ public sealed class Plugin : BaseUnityPlugin
         }
 
         // A trigger behaviour is needed for a teleport/animation target OR for a standalone
-        // in-place effect (boost/brake gate) that has no target.
-        if (!string.IsNullOrEmpty(options.triggerTarget) || options.boostEnabled)
+        // in-place effect (boost/brake gate, wind volume) that has no target.
+        if (!string.IsNullOrEmpty(options.triggerTarget) || options.boostEnabled || options.windEnabled)
         {
             var checkpointTrigger = flag.gameObject.transform.Find("CheckpointTrigger");
             if (checkpointTrigger != null && checkpointTrigger.gameObject.GetComponent<TriggerBehavior>() == null)
@@ -308,6 +308,10 @@ public sealed class Plugin : BaseUnityPlugin
                 trigger.boostEnabled = options.boostEnabled;
                 trigger.speedMultiplier = options.speedMultiplier;
                 trigger.targetSpeed = options.targetSpeed;
+                trigger.windEnabled = options.windEnabled;
+                trigger.forceVector = options.forceVector;
+                trigger.forceMode = options.forceMode;
+                trigger.forceLocalSpace = options.forceLocalSpace;
             }
         }
 

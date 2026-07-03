@@ -139,6 +139,13 @@ namespace Liftoff.MovingObjects.Patcher
                 assembly.MainModule.ImportReference(typeof(float)));
             AddSerializableField(assembly, triggerType, "targetSpeed",
                 assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, triggerType, "windEnabled",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, triggerType, "forceVector", vectorType);
+            AddSerializableField(assembly, triggerType, "forceMode",
+                assembly.MainModule.ImportReference(typeof(int)));
+            AddSerializableField(assembly, triggerType, "forceLocalSpace",
+                assembly.MainModule.ImportReference(typeof(bool)));
 
             var animationType = AddSerializableType(assembly, "MO_Animation");
             AddSerializableField(assembly, animationType, "delay", assembly.MainModule.ImportReference(typeof(float)));

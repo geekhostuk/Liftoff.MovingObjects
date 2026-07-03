@@ -51,6 +51,11 @@ internal class TriggerBehavior : MonoBehaviour
     public float speedMultiplier;
     public float targetSpeed;
 
+    public bool windEnabled;
+    public SerializableVector3 forceVector;
+    public int forceMode;
+    public bool forceLocalSpace;
+
     private bool _hasFiredOnce;
     private float _cooldownUntil;
     private int _sequentialIndex;
@@ -216,6 +221,25 @@ internal class TriggerBehavior : MonoBehaviour
     {
         if (_triggered && other.gameObject.layer == _droneLayer)
             _triggered = false;
+    }
+
+    // Wind / force volume: apply a continuous force to the drone every physics step it overlaps
+    // the volume (updrafts, wind tunnels, push/pull zones). Acceleration mode is mass-independent;
+    // Force mode scales with the drone's mass.
+    public void OnTriggerStay(Collider other)
+    {
+        if (!windEnabled || other.gameObject.layer != _droneLayer)
+            return;
+
+        var body = other.attachedRigidbody;
+        if (body == null)
+            return;
+
+        var force = new Vector3(forceVector.x, forceVector.y, forceVector.z);
+        if (forceLocalSpace)
+            force = transform.TransformDirection(force);
+
+        body.AddForce(force, forceMode == 1 ? ForceMode.Acceleration : ForceMode.Force);
     }
 
     // Anti-tunneling: OnTriggerEnter only fires when the drone overlaps a collider on some

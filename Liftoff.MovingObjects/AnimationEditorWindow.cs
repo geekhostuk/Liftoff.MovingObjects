@@ -48,6 +48,12 @@ internal class AnimationEditorWindow : MonoBehaviour
     private Toggle _boostToggle;
     private TextField _speedMultiplierField;
     private TextField _targetSpeedField;
+    private Toggle _windToggle;
+    private TextField _forceXField;
+    private TextField _forceYField;
+    private TextField _forceZField;
+    private DropdownField _forceModeField;
+    private Toggle _forceLocalToggle;
     private DropdownField _triggerActionField;
     private DropdownField _easingField;
     private Toggle _pingPongToggle;
@@ -210,6 +216,27 @@ internal class AnimationEditorWindow : MonoBehaviour
         _targetSpeedField = new TextField("Target speed (km/h):") { maxLength = 16 };
         GuiUtils.ConvertToFloatField(_targetSpeedField, f => trigger.targetSpeed = f);
         targetSection.Add(_targetSpeedField);
+
+        _windToggle = new Toggle("Wind / force volume") { focusable = false };
+        _windToggle.RegisterValueChangedCallback(evt => trigger.windEnabled = evt.newValue);
+        targetSection.Add(_windToggle);
+
+        _forceXField = MakeFloatField("Force X:", f => trigger.forceVector.x = f);
+        _forceYField = MakeFloatField("Force Y:", f => trigger.forceVector.y = f);
+        _forceZField = MakeFloatField("Force Z:", f => trigger.forceVector.z = f);
+        targetSection.Add(_forceXField);
+        targetSection.Add(_forceYField);
+        targetSection.Add(_forceZField);
+
+        _forceModeField = new DropdownField("Force mode:",
+            new List<string> { "Force", "Acceleration" }, 0) { focusable = false };
+        _forceModeField.RegisterValueChangedCallback(evt =>
+            trigger.forceMode = evt.newValue == "Acceleration" ? 1 : 0);
+        targetSection.Add(_forceModeField);
+
+        _forceLocalToggle = new Toggle("Force in local space") { focusable = false };
+        _forceLocalToggle.RegisterValueChangedCallback(evt => trigger.forceLocalSpace = evt.newValue);
+        targetSection.Add(_forceLocalToggle);
     }
 
     // Same code-added pattern as EnsureTeleportControls, but for the Trigger action dropdown
@@ -422,6 +449,15 @@ internal class AnimationEditorWindow : MonoBehaviour
                 _boostToggle.SetValueWithoutNotify(trigger.boostEnabled);
                 _speedMultiplierField.SetValueWithoutNotify(GuiUtils.FloatToString(trigger.speedMultiplier));
                 _targetSpeedField.SetValueWithoutNotify(GuiUtils.FloatToString(trigger.targetSpeed));
+            }
+            if (_windToggle != null)
+            {
+                _windToggle.SetValueWithoutNotify(trigger.windEnabled);
+                _forceXField.SetValueWithoutNotify(GuiUtils.FloatToString(trigger.forceVector.x));
+                _forceYField.SetValueWithoutNotify(GuiUtils.FloatToString(trigger.forceVector.y));
+                _forceZField.SetValueWithoutNotify(GuiUtils.FloatToString(trigger.forceVector.z));
+                _forceModeField.SetValueWithoutNotify(trigger.forceMode == 1 ? "Acceleration" : "Force");
+                _forceLocalToggle.SetValueWithoutNotify(trigger.forceLocalSpace);
             }
         }
 
