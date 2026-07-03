@@ -65,6 +65,11 @@ internal class AnimationEditorWindow : MonoBehaviour
     private TextField _launchTorqueXField;
     private TextField _launchTorqueYField;
     private TextField _launchTorqueZField;
+    private Toggle _overrideGravityToggle;
+    private TextField _gravityScaleField;
+    private TextField _linearDragField;
+    private TextField _angularDragField;
+    private TextField _massField;
 
     public Assets assets;
 
@@ -283,6 +288,19 @@ internal class AnimationEditorWindow : MonoBehaviour
         physicsBox.Add(_launchTorqueXField);
         physicsBox.Add(_launchTorqueYField);
         physicsBox.Add(_launchTorqueZField);
+
+        _overrideGravityToggle = new Toggle("Override gravity") { focusable = false };
+        _overrideGravityToggle.RegisterValueChangedCallback(evt => options.overrideGravity = evt.newValue);
+        physicsBox.Add(_overrideGravityToggle);
+
+        _gravityScaleField = MakeFloatField("Gravity scale (1 = normal):", f => options.gravityScale = f);
+        _linearDragField = MakeFloatField("Linear drag:", f => options.linearDrag = f);
+        _angularDragField = MakeFloatField("Angular drag:", f => options.angularDrag = f);
+        _massField = MakeFloatField("Mass (0 = immovable):", f => options.mass = f);
+        physicsBox.Add(_gravityScaleField);
+        physicsBox.Add(_linearDragField);
+        physicsBox.Add(_angularDragField);
+        physicsBox.Add(_massField);
     }
 
     // Small helper for the many code-added, validated float fields the options panels need.
@@ -439,6 +457,11 @@ internal class AnimationEditorWindow : MonoBehaviour
                     _launchTorqueXField.SetValueWithoutNotify(GuiUtils.FloatToString(options.launchTorque.x));
                     _launchTorqueYField.SetValueWithoutNotify(GuiUtils.FloatToString(options.launchTorque.y));
                     _launchTorqueZField.SetValueWithoutNotify(GuiUtils.FloatToString(options.launchTorque.z));
+                    _overrideGravityToggle.SetValueWithoutNotify(options.overrideGravity);
+                    _gravityScaleField.SetValueWithoutNotify(GuiUtils.FloatToString(options.gravityScale));
+                    _linearDragField.SetValueWithoutNotify(GuiUtils.FloatToString(options.linearDrag));
+                    _angularDragField.SetValueWithoutNotify(GuiUtils.FloatToString(options.angularDrag));
+                    _massField.SetValueWithoutNotify(GuiUtils.FloatToString(options.mass));
                 }
 
                 var physicsPlay = _root.Q<Button>("physics-play");

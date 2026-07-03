@@ -19,11 +19,35 @@ internal sealed class PhysicsPlayer : MonoBehaviour
         _initRotation = transform.rotation;
 
         _rigidBody = gameObject.AddComponent<Rigidbody>();
-        _rigidBody.mass = float.MaxValue;
+        // mass defaults to float.MaxValue so the drone can't shove the object; an author-set mass
+        // (> 0) opts into a movable body.
+        _rigidBody.mass = options.mass > 0 ? options.mass : float.MaxValue;
         _rigidBody.isKinematic = true;
+
+        // Drag overrides only apply when set (> 0) so Unity's defaults (0 linear, 0.05 angular)
+        // are preserved for existing maps.
+        if (options.linearDrag > 0)
+            _rigidBody.drag = options.linearDrag;
+        if (options.angularDrag > 0)
+            _rigidBody.angularDrag = options.angularDrag;
+
+        // When overriding gravity we drive it ourselves in FixedUpdate (see below) so a scale of
+        // 0 (float in place), < 1 (floaty), > 1 (heavy) or < 0 (anti-gravity) all work.
+        if (options.overrideGravity)
+            _rigidBody.useGravity = false;
 
         if (!waitForTrigger)
             Restart();
+    }
+
+    private void FixedUpdate()
+    {
+        if (!options.overrideGravity || _rigidBody == null || _rigidBody.isKinematic)
+            return;
+
+        // Acceleration mode is mass-independent, so custom gravity still works with the huge
+        // default mass.
+        _rigidBody.AddForce(Physics.gravity * options.gravityScale, ForceMode.Acceleration);
     }
 
     private IEnumerator StartPhysics()

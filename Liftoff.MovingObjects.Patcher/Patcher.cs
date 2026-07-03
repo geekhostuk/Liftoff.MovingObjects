@@ -99,6 +99,16 @@ namespace Liftoff.MovingObjects.Patcher
                 assembly.MainModule.ImportReference(typeof(bool)));
             AddSerializableField(assembly, animationOptsType, "launchImpulse", vectorType);
             AddSerializableField(assembly, animationOptsType, "launchTorque", vectorType);
+            AddSerializableField(assembly, animationOptsType, "overrideGravity",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, animationOptsType, "gravityScale",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "linearDrag",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "angularDrag",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "mass",
+                assembly.MainModule.ImportReference(typeof(float)));
 
 
             var triggerType = AddSerializableType(assembly, "MO_TriggerOptions");
