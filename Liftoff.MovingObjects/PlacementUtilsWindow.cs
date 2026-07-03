@@ -40,6 +40,9 @@ internal class PlacementUtilsWindow : MonoBehaviour
     private GameObject _triggerLinkObject;
     private bool _triggerLinksEnabled;
     private Button _duplicateButton;
+    private TextField _arrayCountField;
+    private Button _arrayButton;
+    private int _arrayCount = 3;
 
     public Assets assets;
 
@@ -190,6 +193,13 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
         _duplicateButton = new Button(DuplicateSelected) { text = "Duplicate item", focusable = false };
         _root.Add(_duplicateButton);
+
+        _arrayCountField = new TextField("Array count:") { maxLength = 4 };
+        GuiUtils.ConvertToIntField(_arrayCountField, i => _arrayCount = i, _arrayCount);
+        _root.Add(_arrayCountField);
+
+        _arrayButton = new Button(ArraySelected) { text = "Array item", focusable = false };
+        _root.Add(_arrayButton);
     }
 
     // Single-item duplicate built on the ItemSpawner spike: clone the selected item at a one-grid
@@ -202,6 +212,16 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
         var step = Shared.PlacementUtils.GridRound > 0 ? Shared.PlacementUtils.GridRound : 1f;
         ItemSpawner.Duplicate(_selectedItem.blueprint, new Vector3(step, 0f, 0f));
+        Shared.Editor.RequestRefreshGui();
+    }
+
+    private void ArraySelected()
+    {
+        if (_selectedItem?.blueprint == null || _arrayCount < 1)
+            return;
+
+        var step = Shared.PlacementUtils.GridRound > 0 ? Shared.PlacementUtils.GridRound : 1f;
+        ItemSpawner.Array(_selectedItem.blueprint, _arrayCount, new Vector3(step, 0f, 0f));
         Shared.Editor.RequestRefreshGui();
     }
 

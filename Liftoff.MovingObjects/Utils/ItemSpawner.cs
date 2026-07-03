@@ -83,4 +83,12 @@ internal static class ItemSpawner
 
         return item.gameObject;
     }
+
+    // Array (8f): stamp N duplicates, each offset a further step from the source. Same primitive
+    // as Duplicate with an offset pattern; mirror and multi-object paste layer on the same way.
+    public static void Array(TrackBlueprint source, int count, Vector3 step)
+    {
+        for (var i = 1; i <= count; i++)
+            Duplicate(source, step * i);
+    }
 }
