@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using BepInEx.Logging;
 using Liftoff.MovingObjects.Player;
 using Liftoff.MovingObjects.Utils;
@@ -76,6 +77,8 @@ internal class AnimationEditorWindow : MonoBehaviour
     private Toggle _randomizePhaseToggle;
     private Toggle _killOnContactAnimToggle;
     private Toggle _killOnContactPhysToggle;
+    private Button _copyConfigButton;
+    private Button _pasteConfigButton;
     private TextField _launchImpulseXField;
     private TextField _launchImpulseYField;
     private TextField _launchImpulseZField;
@@ -393,6 +396,68 @@ internal class AnimationEditorWindow : MonoBehaviour
         return field;
     }
 
+    // Copy/Paste of the whole MO configuration between objects — author one moving gate, stamp it
+    // onto twenty. Same idempotent code-added pattern; lives on the always-present #root container.
+    private void EnsureClipboardControls()
+    {
+        var container = _root.Q<VisualElement>("root");
+        if (container == null)
+            return;
+
+        if (_copyConfigButton != null && _copyConfigButton.parent == container)
+            return;
+
+        _copyConfigButton = new Button(CopyConfig) { text = "Copy MO config", focusable = false };
+        container.Add(_copyConfigButton);
+
+        _pasteConfigButton = new Button(PasteConfig) { text = "Paste MO config", focusable = false };
+        container.Add(_pasteConfigButton);
+    }
+
+    private void CopyConfig()
+    {
+        Shared.Clipboard.animationOptions = (MO_AnimationOptions)DeepClone(options);
+        Shared.Clipboard.animationSteps = (List<MO_Animation>)DeepClone(steps);
+        Shared.Clipboard.triggerOptions = (MO_TriggerOptions)DeepClone(trigger);
+        RefreshGui();
+    }
+
+    private void PasteConfig()
+    {
+        if (!Shared.Clipboard.HasData || _blueprint == null)
+            return;
+
+        _blueprint.mo_animationOptions = (MO_AnimationOptions)DeepClone(Shared.Clipboard.animationOptions);
+        _blueprint.mo_animationSteps = (List<MO_Animation>)DeepClone(Shared.Clipboard.animationSteps);
+        _blueprint.mo_triggerOptions = (MO_TriggerOptions)DeepClone(Shared.Clipboard.triggerOptions);
+        RefreshGui();
+    }
+
+    // Generic deep clone by reflection: structs/strings are copied by value, lists element-wise,
+    // and reference types field-by-field. Covers every current and future MO_* field automatically.
+    private static object DeepClone(object src)
+    {
+        if (src == null)
+            return null;
+
+        var type = src.GetType();
+        if (type.IsValueType || type == typeof(string))
+            return src;
+
+        if (src is IList list)
+        {
+            var cloneList = (IList)Activator.CreateInstance(type);
+            foreach (var item in list)
+                cloneList.Add(DeepClone(item));
+            return cloneList;
+        }
+
+        var dst = Activator.CreateInstance(type);
+        foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
+            field.SetValue(dst, DeepClone(field.GetValue(src)));
+        return dst;
+    }
+
     private void OnPlayAnimationClicked()
     {
         if (_tempAnimationObject == null)
@@ -430,6 +495,9 @@ internal class AnimationEditorWindow : MonoBehaviour
             return;
 
         StartCoroutine(UpdateMenuPos());
+
+        EnsureClipboardControls();
+        _pasteConfigButton?.SetEnabled(Shared.Clipboard.HasData);
 
         var currentType = options == null ? Type.None : options.simulatePhysics ? Type.Physics : Type.Animation;
         _root.Q<DropdownField>("type").value = currentType.ToString();
