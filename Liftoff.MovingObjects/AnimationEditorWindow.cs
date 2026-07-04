@@ -866,6 +866,35 @@ internal class AnimationEditorWindow : MonoBehaviour
         return rootObj;
     }
 
+    // Physics preview needs a real compound body, not FakeGroup's visual-follow. FakeGroup only
+    // makes the members *follow* the root each frame, so the root's single Rigidbody would collide
+    // as just its own half of the assembly (e.g. one half-sphere bowl that drops but can't roll).
+    // Transform-parenting the members under the root (as GroupFlags does in flight) turns their
+    // colliders into compound colliders of that one body, so the group behaves as a solid whole.
+    private GameObject CreateTempPhysicsObj()
+    {
+        if (string.IsNullOrEmpty(_blueprint.mo_groupId))
+            return CreateTempObj();
+
+        GameObject rootObj = null;
+        var childs = new List<GameObject>();
+        foreach (var flag in EditorUtils.FindFlagsByGroupId(_blueprint.mo_groupId))
+        {
+            var clone = Instantiate(flag.gameObject);
+            clone.transform.SetPositionAndRotation(flag.gameObject.transform.position, flag.gameObject.transform.rotation);
+            clone.transform.localScale = flag.gameObject.transform.localScale;
+            if (flag.gameObject == _item.gameObject)
+                rootObj = clone;
+            else
+                childs.Add(clone);
+        }
+
+        foreach (var child in childs)
+            child.transform.SetParent(rootObj.transform, true);
+
+        return rootObj;
+    }
+
     private void StartAnimation()
     {
         Log.LogWarning($"Animation start: {_item.gameObject} at {_item.transform.position}");
@@ -892,14 +921,19 @@ internal class AnimationEditorWindow : MonoBehaviour
         if (!string.IsNullOrEmpty(_blueprint.mo_groupId))
             groupObjects = EditorUtils.FindFlagsByGroupId(_blueprint.mo_groupId).Select(c => c.gameObject).ToList();
 
-        _tempPhysicsObject = CreateTempObj();
+        _tempPhysicsObject = CreateTempPhysicsObj();
 
-        var tempColliders = _tempPhysicsObject.GetComponentsInChildren<Collider>().ToList();
+        var tempColliders = _tempPhysicsObject.GetComponentsInChildren<Collider>(true).ToList();
 
-        var tempGroupObjects = FakeGroup.GetChilds(_tempPhysicsObject);
-        if (tempGroupObjects != null)
-            tempColliders.AddRange(tempGroupObjects.SelectMany(o => o.GetComponentsInChildren<Collider>()));
-        
+        // Match the in-flight body: enable every member collider and convex-hull mesh colliders so
+        // the dynamic Rigidbody keeps them (Unity drops non-convex meshes from a non-kinematic body).
+        foreach (var tempCollider in tempColliders)
+        {
+            if (tempCollider is MeshCollider meshCollider)
+                meshCollider.convex = true;
+            tempCollider.enabled = true;
+        }
+
         var targetColliders = new List<Collider>();
         targetColliders.AddRange(_item.gameObject.GetComponentsInChildren<Collider>());
         targetColliders.AddRange(GameObject.Find("TrackEditorGizmo").GetComponentsInChildren<Collider>());

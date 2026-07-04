@@ -24,6 +24,14 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.2.1
+
+- **Grouped-sphere physics fix** — a group of two half-spheres (or any grouped physics body) now
+  collides and rolls as one solid object. Mesh colliders on a physics body are forced convex
+  (Unity silently drops non-convex meshes from a dynamic rigidbody, so the body would fall through
+  or slide instead of roll), and the **F2 physics preview** now builds a real compound body instead
+  of just making the other members visually follow the root — so the preview matches in-flight.
+
 ### New in 1.2.0
 
 A large feature release implementing the remaining `ideas.md` backlog. Grouped by system:

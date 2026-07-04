@@ -267,21 +267,33 @@ public sealed class Plugin : BaseUnityPlugin
 
         // Only the group root (the flag carrying mo_animationOptions) reaches here, so it gets the
         // single Rigidbody. GroupFlags has already transform-parented the other members underneath
-        // it, so they act as compound colliders of that one body — no nested rigidbodies. Enable
+        // it, so they act as compound colliders of that one body — no nested rigidbodies. Prepare
         // every collider in the assembly so the whole group collides, not just the root.
         if (!string.IsNullOrEmpty(blueprint.mo_groupId))
         {
             foreach (var groupCollider in flag.GetComponentsInChildren<Collider>(true))
-                if (!groupCollider.enabled)
-                {
-                    groupCollider.enabled = true;
-                    groupCollider.gameObject.layer = LayerMask.NameToLayer("Ghost");
-                }
+                PreparePhysicsCollider(groupCollider);
             return;
         }
 
-        var collider = flag.GetComponentInChildren<Collider>();
-        if (collider?.enabled == false)
+        PreparePhysicsCollider(flag.GetComponentInChildren<Collider>());
+    }
+
+    // A collider that belongs to a moving object's dynamic (non-kinematic) Rigidbody has two
+    // requirements the placed decorative item doesn't meet on its own:
+    //  - it must be enabled (placed items often ship with their collider off), and
+    //  - a MeshCollider must be convex. Unity silently drops a non-convex MeshCollider from a
+    //    non-kinematic Rigidbody, so the body falls through surfaces or slides instead of rolling.
+    //    Convex-hulling each half-sphere mesh is what lets a grouped sphere roll as one ball.
+    private static void PreparePhysicsCollider(Collider collider)
+    {
+        if (collider == null)
+            return;
+
+        if (collider is MeshCollider meshCollider)
+            meshCollider.convex = true;
+
+        if (!collider.enabled)
         {
             collider.enabled = true;
             collider.gameObject.layer = LayerMask.NameToLayer("Ghost");
