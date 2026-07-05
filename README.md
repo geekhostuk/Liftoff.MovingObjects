@@ -24,6 +24,24 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.2.3 (beta)
+
+- **Multi-object copy/paste and mirror now keep their layout.** A pasted (or mirrored) selection
+  used to collapse every object onto the cursor and lose its rotation, because the paste read each
+  object's *blueprint* position/rotation — fields the game only syncs to the object at track
+  save/load, so mid-edit they're stale. Copy/mirror now capture each item's **live** transform
+  (position, rotation, scale) and set it explicitly on the spawned object, so the pasted set
+  reproduces the exact relative spacing, orientation, and scale around the gizmo. Save-to-stamp
+  likewise now records live positions rather than stale ones.
+- **Editor triangle stats no longer run on window open.** The per-second stats poll that caused
+  editor stutter was disabled back in 1.2.0, but a later change re-ran the scene-wide triangle count
+  every time the placement window opened — a fresh hitch on large maps, and a whole-scene poly count
+  that looked wrong for a selection. Stats are now computed **only** when you click *Refresh stats*.
+
+> Note: these changes are compile-verified and follow the editor's existing live-transform idiom,
+> but should be confirmed with an in-game playtest — paste/mirror a multi-item selection and check
+> the relative spacing and rotations survive.
+
 ### New in 1.2.2 (beta)
 
 - **Spinner / orbit now run in flight, not just in the editor.** Continuous-rotation and
@@ -159,7 +177,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.2.2.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.2.3.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`

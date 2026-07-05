@@ -93,58 +93,71 @@ internal static class ItemSpawner
             Duplicate(source, step * i);
     }
 
-    // Multi-object paste: spawn a set of source blueprints translated so their centroid lands at
-    // targetAnchor (the cursor/gizmo). Grouped items keep their grouping but under fresh group ids
-    // so a pasted group never silently merges with the source group.
-    public static void Paste(List<TrackBlueprint> sources, Vector3 sourceCentroid, Vector3 targetAnchor)
+    // Multi-object paste: spawn a set of items translated so their captured centroid lands at
+    // targetAnchor (the cursor/gizmo). The final world transform is set explicitly after spawn
+    // from each item's captured live transform — the first cut wrote blueprint.position and trusted
+    // ApplyBlueprint to place it, but those fields are only synced at track save/load, so mid-edit
+    // they're stale and every item collapsed onto the anchor with default orientation. Grouped items
+    // keep their grouping but under fresh group ids so a pasted group never silently merges with the
+    // source group.
+    public static void Paste(List<PlacedItem> sources, Vector3 sourceCentroid, Vector3 targetAnchor)
     {
         var groupMap = new Dictionary<string, string>();
         var delta = targetAnchor - sourceCentroid;
 
         foreach (var source in sources)
         {
-            var bp = CloneUtils.DeepClone(source);
-            bp.position = new SerializableVector3(ToVector3(source.position) + delta);
-            bp.mo_groupId = RemapGroup(source.mo_groupId, groupMap);
-            SpawnFromBlueprint(bp);
+            var bp = CloneUtils.DeepClone(source.blueprint);
+            bp.mo_groupId = RemapGroup(source.blueprint.mo_groupId, groupMap);
+
+            var item = SpawnFromBlueprint(bp);
+            if (item == null)
+                continue;
+
+            item.transform.SetPositionAndRotation(source.position + delta, source.rotation);
+            if (source.scale.HasValue)
+                item.transform.localScale = source.scale.Value;
         }
     }
 
-    // Mirror (8f): spawn a mirrored copy of the source blueprints reflected across the plane
-    // through `pivot` with the given normal, under fresh group ids. Rotation is mirrored by
-    // reflecting the forward/up vectors (a proper Quaternion can't encode the handedness flip, so
-    // this is the standard best-effort mirror).
-    public static void Mirror(List<TrackBlueprint> sources, Vector3 pivot, Vector3 normal)
+    // Mirror (8f): spawn a mirrored copy of the source items reflected across the plane through
+    // `pivot` with the given normal, under fresh group ids. Rotation is mirrored by reflecting the
+    // forward/up vectors (a proper Quaternion can't encode the handedness flip, so this is the
+    // standard best-effort mirror). As with Paste, the world transform is set on the live object.
+    public static void Mirror(List<PlacedItem> sources, Vector3 pivot, Vector3 normal)
     {
         normal = normal.normalized;
         var groupMap = new Dictionary<string, string>();
 
         foreach (var source in sources)
         {
-            var bp = CloneUtils.DeepClone(source);
+            var bp = CloneUtils.DeepClone(source.blueprint);
+            bp.mo_groupId = RemapGroup(source.blueprint.mo_groupId, groupMap);
 
-            var pos = pivot + Reflect(ToVector3(source.position) - pivot, normal);
-            var rot = Quaternion.Euler(ToVector3(source.rotation));
-            var mirrored = Quaternion.LookRotation(Reflect(rot * Vector3.forward, normal),
-                Reflect(rot * Vector3.up, normal));
+            var item = SpawnFromBlueprint(bp);
+            if (item == null)
+                continue;
 
-            bp.position = new SerializableVector3(pos);
-            bp.rotation = new SerializableVector3(mirrored.eulerAngles);
-            bp.mo_groupId = RemapGroup(source.mo_groupId, groupMap);
-            SpawnFromBlueprint(bp);
+            var pos = pivot + Reflect(source.position - pivot, normal);
+            var mirrored = Quaternion.LookRotation(Reflect(source.rotation * Vector3.forward, normal),
+                Reflect(source.rotation * Vector3.up, normal));
+
+            item.transform.SetPositionAndRotation(pos, mirrored);
+            if (source.scale.HasValue)
+                item.transform.localScale = source.scale.Value;
         }
     }
 
-    // Centroid of a set of blueprint positions — the anchor a copied selection pastes relative to.
-    public static Vector3 Centroid(List<TrackBlueprint> blueprints)
+    // Centroid of a set of captured item positions — the anchor a copied selection pastes relative to.
+    public static Vector3 Centroid(List<PlacedItem> items)
     {
-        if (blueprints.Count == 0)
+        if (items.Count == 0)
             return Vector3.zero;
 
         var sum = Vector3.zero;
-        foreach (var bp in blueprints)
-            sum += ToVector3(bp.position);
-        return sum / blueprints.Count;
+        foreach (var item in items)
+            sum += item.position;
+        return sum / items.Count;
     }
 
     private static string RemapGroup(string oldId, Dictionary<string, string> map)
@@ -164,9 +177,39 @@ internal static class ItemSpawner
     {
         return v - 2f * Vector3.Dot(v, normal) * normal;
     }
+}
 
-    private static Vector3 ToVector3(SerializableVector3 v)
+// A blueprint paired with the world transform to place it at. Copy/mirror capture each selected
+// item's LIVE transform (position/rotation/localScale) rather than the blueprint's own position/
+// rotation fields, which are only synced to the object at track save/load and are stale mid-edit.
+// Stamps loaded from disk have no live object, so they fall back to the blueprint's serialized
+// fields via FromBlueprint (scale null → leave whatever the spawned prefab uses).
+internal struct PlacedItem
+{
+    public TrackBlueprint blueprint;
+    public Vector3 position;
+    public Quaternion rotation;
+    public Vector3? scale;
+
+    public static PlacedItem FromLive(TrackBlueprint blueprint, Transform transform)
     {
-        return new Vector3(v.x, v.y, v.z);
+        return new PlacedItem
+        {
+            blueprint = blueprint,
+            position = transform.position,
+            rotation = transform.rotation,
+            scale = transform.localScale,
+        };
+    }
+
+    public static PlacedItem FromBlueprint(TrackBlueprint blueprint)
+    {
+        return new PlacedItem
+        {
+            blueprint = blueprint,
+            position = new Vector3(blueprint.position.x, blueprint.position.y, blueprint.position.z),
+            rotation = Quaternion.Euler(blueprint.rotation.x, blueprint.rotation.y, blueprint.rotation.z),
+            scale = null,
+        };
     }
 }

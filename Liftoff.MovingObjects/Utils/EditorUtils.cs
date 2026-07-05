@@ -33,6 +33,20 @@ internal class EditorUtils
         return TrackItemTypes.Select(parent.GetComponentInParent).FirstOrDefault(component => component != null);
     }
 
+    // Map a blueprint back to the live track-item component that owns it, so callers can read the
+    // item's current world transform. The blueprint's own position/rotation fields are only synced
+    // at track save/load, so they're stale mid-edit — the live transform is the source of truth.
+    // Matches by reference: the selection stores the very same blueprint instance the flag holds.
+    public static Component FindFlagByBlueprint(TrackBlueprint blueprint)
+    {
+        if (blueprint == null)
+            return null;
+        foreach (var flag in FindAllFlags())
+            if (ReferenceEquals(ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(flag), blueprint))
+                return flag;
+        return null;
+    }
+
     public static List<Component> FindFlagsByGroupId(string groupId)
     {
         var flags = new List<Component>();

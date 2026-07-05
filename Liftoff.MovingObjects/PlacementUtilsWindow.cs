@@ -153,9 +153,10 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
         RefreshGui();
 
-        // Count once on open for an immediate figure; thereafter it's refreshed on demand via the
-        // "Refresh stats" button rather than the old per-second poll.
-        UpdateStats();
+        // Stats are NOT computed on open: UpdateStats walks every MeshFilter in the scene and sums
+        // submesh index counts, which hitches on large maps. It runs only when the user clicks
+        // "Refresh stats" (see UpdateStats / _refreshStatsButton). The labels stay at their default
+        // until then. This is the on-demand replacement for the old per-second InvokeRepeating poll.
     }
 
     private void RefreshGui()
@@ -254,30 +255,38 @@ internal class PlacementUtilsWindow : MonoBehaviour
         return gizmo != null ? gizmo.transform.position : Vector3.zero;
     }
 
-    // The current selection: the enchanted multi-select set (GroupSelectionInfo markers), or the
-    // single selected item as a fallback.
-    private List<TrackBlueprint> GetSelectedBlueprints()
+    // The current selection as PlacedItems: each a deep-cloned blueprint plus the item's LIVE world
+    // transform (blueprint position/rotation are stale mid-edit, so we read the transform). Comes
+    // from the enchanted multi-select set (GroupSelectionInfo markers), or the single selected item
+    // as a fallback.
+    private List<PlacedItem> GetSelectedPlacedItems()
     {
-        var list = FindObjectsOfType<GroupSelectionInfo>()
-            .Select(info => info.trackBlueprint)
-            .Where(blueprint => blueprint != null)
-            .Distinct()
-            .ToList();
+        var items = new List<PlacedItem>();
 
-        if (list.Count == 0 && _selectedItem?.blueprint != null)
-            list.Add(_selectedItem.blueprint);
+        foreach (var blueprint in FindObjectsOfType<GroupSelectionInfo>()
+                     .Select(info => info.trackBlueprint)
+                     .Where(blueprint => blueprint != null)
+                     .Distinct())
+        {
+            var flag = EditorUtils.FindFlagByBlueprint(blueprint);
+            if (flag != null)
+                items.Add(PlacedItem.FromLive(CloneUtils.DeepClone(blueprint), flag.transform));
+        }
 
-        return list;
+        if (items.Count == 0 && _selectedItem?.blueprint != null && _selectedItem.gameObject != null)
+            items.Add(PlacedItem.FromLive(CloneUtils.DeepClone(_selectedItem.blueprint),
+                _selectedItem.gameObject.transform));
+
+        return items;
     }
 
     private void CopySelection()
     {
-        var blueprints = GetSelectedBlueprints();
-        if (blueprints.Count == 0)
+        var items = GetSelectedPlacedItems();
+        if (items.Count == 0)
             return;
 
-        Shared.ItemClipboard.blueprints = blueprints.Select(b => CloneUtils.DeepClone(b)).ToList();
-        Shared.ItemClipboard.centroid = ItemSpawner.Centroid(blueprints);
+        Shared.ItemClipboard.items = items;
     }
 
     private void PasteSelection()
@@ -285,36 +294,49 @@ internal class PlacementUtilsWindow : MonoBehaviour
         if (!Shared.ItemClipboard.HasData)
             return;
 
-        ItemSpawner.Paste(Shared.ItemClipboard.blueprints, Shared.ItemClipboard.centroid, GizmoPosition());
+        var items = Shared.ItemClipboard.items;
+        ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition());
         Shared.Editor.RequestRefreshGui();
     }
 
     private void MirrorSelection()
     {
-        var blueprints = GetSelectedBlueprints();
-        if (blueprints.Count == 0)
+        var items = GetSelectedPlacedItems();
+        if (items.Count == 0)
             return;
 
         // Mirror across the vertical plane through the gizmo (left/right).
-        ItemSpawner.Mirror(blueprints, GizmoPosition(), Vector3.right);
+        ItemSpawner.Mirror(items, GizmoPosition(), Vector3.right);
         Shared.Editor.RequestRefreshGui();
     }
 
     private void SaveStamp()
     {
-        var blueprints = GetSelectedBlueprints();
-        if (blueprints.Count == 0)
+        var items = GetSelectedPlacedItems();
+        if (items.Count == 0)
             return;
 
-        StampIO.Save(_stampName, blueprints.Select(b => CloneUtils.DeepClone(b)).ToList());
+        // Bake each item's live world transform into the blueprint fields so the on-disk stamp
+        // records where things actually are (blueprint position/rotation are stale mid-edit). The
+        // blueprints here are already deep clones, so this doesn't touch the live items.
+        var blueprints = items.Select(item =>
+        {
+            item.blueprint.position = new SerializableVector3(item.position);
+            item.blueprint.rotation = new SerializableVector3(item.rotation.eulerAngles);
+            return item.blueprint;
+        }).ToList();
+
+        StampIO.Save(_stampName, blueprints);
     }
 
     private void InsertStamp()
     {
-        var items = StampIO.Load(_stampName);
-        if (items == null || items.Count == 0)
+        var blueprints = StampIO.Load(_stampName);
+        if (blueprints == null || blueprints.Count == 0)
             return;
 
+        // Disk stamps have no live object, so their blueprint position/rotation ARE the truth.
+        var items = blueprints.Select(PlacedItem.FromBlueprint).ToList();
         ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition());
         Shared.Editor.RequestRefreshGui();
     }
