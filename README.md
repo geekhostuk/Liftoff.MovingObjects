@@ -24,6 +24,28 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.2.2 (beta)
+
+- **Spinner / orbit now run in flight, not just in the editor.** Continuous-rotation and
+  circular-orbit objects that had *no keyframe steps* previewed correctly in the editor but were
+  never given a runtime player in flight — injection only fired for objects with at least one
+  animation step, and a spinner/orbit needs none. Spinner- or orbit-only objects now animate in
+  flight the same way they always did in the editor preview.
+- **Experimental spectator animation sync (opt-in, off by default).** When you spectate another
+  pilot in multiplayer, your client never receives the local drone-reset events, so moving objects
+  keep running from their own start time and drift out of sync with what the spectated pilot sees.
+  A new **`[Experimental] SpectatorAnimationSync`** config option watches the game log for the
+  spectator camera re-attaching to a pilot and re-syncs the moving objects on that pilot's reset
+  (and when you switch spectate target). It is best-effort and Liftoff-version-specific — network
+  latency can still cause brief clipping — and is based on a proof-of-concept contributed by
+  **[AMPW-german](https://github.com/AMPW-german)**, reworked here to run on the Unity main thread,
+  behind a config flag, from a single non-threaded log subscription (instead of the original's
+  cross-thread call and four Harmony log-sink patches).
+
+> Note: as with 1.2.0, these changes compile and are wired end-to-end but should be confirmed with
+> an in-game playtest. The spinner-in-flight fix is compile-verified only, and the experimental
+> spectator sync depends on a log line that varies by Liftoff version — treat it as beta.
+
 ### New in 1.2.1
 
 - **Grouped-sphere physics fix** — a group of two half-spheres (or any grouped physics body) now
@@ -136,7 +158,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.2.0.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.2.2.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`
@@ -195,5 +217,6 @@ picking up new work or filing a feature request.
 
 - **[ps-hek](https://github.com/ps-hek)** — original author and maintainer of the mod, the patcher, the editor UI, and the published maps. Everything user-facing about this mod is their work.
 - **[geekhostuk](https://github.com/geekhostuk)** — maintains this fork, modernizing the mod to keep working with newer Liftoff builds.
+- **[AMPW-german](https://github.com/AMPW-german)** — contributed the proof-of-concept for multiplayer spectator animation sync (v1.2.2).
 
 If you find this mod useful, please go give the upstream repo a star.

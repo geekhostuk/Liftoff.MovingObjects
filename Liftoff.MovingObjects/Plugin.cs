@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using BepInEx;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 using Liftoff.MovingObjects.Player;
@@ -22,6 +23,18 @@ public sealed class Plugin : BaseUnityPlugin
 
     private Harmony _harmony;
 
+    // Experimental multiplayer spectator sync. When you spectate another pilot, your client never
+    // fires the local drone-reset events (FlightManager.onDroneReset*), so moving objects keep
+    // running from their own start time and drift out of sync with what the spectated pilot sees.
+    // Liftoff logs a line when the spectator camera (re)attaches to a pilot — on their reset, and
+    // when you switch spectate target — so we watch the main-thread log stream for that marker and
+    // re-run our own reset + re-inject to resync. Off by default: the marker text is version-
+    // specific, and this is best-effort (network latency can still cause brief clipping).
+    private const string SpectatorAttachMarker = "Attached spectator camera to";
+    private static ConfigEntry<bool> _spectatorSyncEnabled;
+    private static float _lastSpectatorSyncTime = float.NegativeInfinity;
+    private const float SpectatorSyncDebounceSeconds = 0.5f;
+
     private void Awake()
     {
         Log.LogInfo($"{PluginInfo.PLUGIN_NAME} {PluginInfo.PLUGIN_VERSION} loaded");
@@ -31,6 +44,24 @@ public sealed class Plugin : BaseUnityPlugin
 
         try { _harmony = Harmony.CreateAndPatchAll(typeof(Plugin)); }
         catch (System.Exception ex) { Log.LogError($"Harmony.CreateAndPatchAll failed: {ex}"); }
+
+        _spectatorSyncEnabled = Config.Bind(
+            "Experimental", "SpectatorAnimationSync", false,
+            "EXPERIMENTAL. When spectating another pilot in multiplayer, re-sync moving-object "
+            + "animations each time the spectated pilot resets (detected from the game log stream). "
+            + "Best-effort and Liftoff-version-specific; network latency can still cause brief "
+            + "clipping. Takes effect on the next game start.");
+
+        if (_spectatorSyncEnabled.Value)
+        {
+            // Subscribe to logMessageReceived, NOT ...Threaded: the non-threaded event is raised on
+            // the Unity main thread, so OnGameLogMessage can call the reset path (FindObjectsOfType,
+            // AddComponent, component enable/disable) directly with no cross-thread marshalling. The
+            // handler is static, so it keeps working even after this MonoBehaviour is torn down early
+            // (see OnDestroy) — we never depend on this component's Update running.
+            Application.logMessageReceived += OnGameLogMessage;
+            Log.LogInfo("Experimental spectator animation sync enabled");
+        }
 
         try
         {
@@ -182,6 +213,26 @@ public sealed class Plugin : BaseUnityPlugin
             $"Physics step: fixedDeltaTime={Time.fixedDeltaTime:F5}s ({1f / Time.fixedDeltaTime:F1} Hz)");
     }
 
+    // Main-thread log handler for experimental spectator sync (see the field comment in Awake).
+    // Liftoff emits SpectatorAttachMarker whenever the spectator camera (re)attaches to a pilot;
+    // that fires on the spectated pilot's reset and on a spectate-target switch — both cases where
+    // our moving objects need to be reset to line back up with the pilot's client.
+    private static void OnGameLogMessage(string condition, string stackTrace, LogType type)
+    {
+        if (condition == null ||
+            condition.IndexOf(SpectatorAttachMarker, System.StringComparison.Ordinal) < 0)
+            return;
+
+        // A target switch can emit the marker several times in a burst; debounce so we resync once.
+        if (Time.unscaledTime - _lastSpectatorSyncTime < SpectatorSyncDebounceSeconds)
+            return;
+        _lastSpectatorSyncTime = Time.unscaledTime;
+
+        Log.LogInfo("Spectated pilot reset detected — re-syncing moving objects");
+        OnDroneResetStart();
+        OnDroneResetDone();
+    }
+
     private static void OnDroneResetStart()
     {
         foreach (var p in FindObjectsOfType<AnimationPlayer>())
@@ -308,7 +359,8 @@ public sealed class Plugin : BaseUnityPlugin
         Log.LogInfo($"Item with animation detected: {blueprint}, {flag}");
 
         var player = flag.gameObject.AddComponent<AnimationPlayer>();
-        player.steps = blueprint.mo_animationSteps;
+        // A spinner/orbit-only object may carry no step list; the player iterates steps on init.
+        player.steps = blueprint.mo_animationSteps ?? new List<MO_Animation>();
         player.options = blueprint.mo_animationOptions;
 
         var action = (MO_TriggerAction)blueprint.mo_animationOptions.triggerAction;
@@ -377,7 +429,12 @@ public sealed class Plugin : BaseUnityPlugin
 
             if (blueprint?.mo_animationOptions?.simulatePhysics == true)
                 AddPhysics(blueprint, flag, waitForTrigger);
-            else if (blueprint?.mo_animationSteps?.Count > 0)
+            // Continuous modes (spinner / orbit) run without a step list, so gate on them too —
+            // otherwise a spinner-only object gets no AnimationPlayer and never rotates in flight
+            // (it still previews in the editor, which attaches a player unconditionally).
+            else if (blueprint?.mo_animationSteps?.Count > 0
+                     || blueprint?.mo_animationOptions?.spinnerEnabled == true
+                     || blueprint?.mo_animationOptions?.orbitEnabled == true)
                 AddAnimation(blueprint, flag, waitForTrigger);
 
             // Hazard-on-contact turns the moving object into a drone-killer (idempotent).
