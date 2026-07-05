@@ -72,17 +72,25 @@ internal static class ItemSpawner
             return null;
 
         item.transform.position += offset;
-
-        var newBlueprint = ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(item);
-        if (newBlueprint != null)
-        {
-            newBlueprint.mo_animationOptions = CloneUtils.DeepClone(source.mo_animationOptions);
-            newBlueprint.mo_animationSteps = CloneUtils.DeepClone(source.mo_animationSteps);
-            newBlueprint.mo_triggerOptions = CloneUtils.DeepClone(source.mo_triggerOptions);
-            newBlueprint.mo_groupId = null;
-        }
-
+        ApplyMoConfig(item, source, null);
         return item.gameObject;
+    }
+
+    // Copy the mod's injected config onto a freshly spawned item's OWN blueprint. The game's
+    // ApplyBlueprint only knows the stock track fields, so the mo_* fields (animation / trigger /
+    // group id) never ride along on spawn — they have to be written here or the paste silently drops
+    // every object's animation, trigger, and grouping. Deep-cloned so repeated spawns from one source
+    // don't share config objects. groupId is passed in (remapped to a fresh group, or null).
+    private static void ApplyMoConfig(Component item, TrackBlueprint source, string groupId)
+    {
+        var blueprint = ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(item);
+        if (blueprint == null)
+            return;
+
+        blueprint.mo_animationOptions = CloneUtils.DeepClone(source.mo_animationOptions);
+        blueprint.mo_animationSteps = CloneUtils.DeepClone(source.mo_animationSteps);
+        blueprint.mo_triggerOptions = CloneUtils.DeepClone(source.mo_triggerOptions);
+        blueprint.mo_groupId = groupId;
     }
 
     // Array (8f): stamp N duplicates, each offset a further step from the source. Same primitive
@@ -100,23 +108,29 @@ internal static class ItemSpawner
     // they're stale and every item collapsed onto the anchor with default orientation. Grouped items
     // keep their grouping but under fresh group ids so a pasted group never silently merges with the
     // source group.
-    public static void Paste(List<PlacedItem> sources, Vector3 sourceCentroid, Vector3 targetAnchor)
+    public static void Paste(List<PlacedItem> sources, Vector3 sourceCentroid, Vector3 targetAnchor,
+        float gridStep)
     {
         var groupMap = new Dictionary<string, string>();
-        var delta = targetAnchor - sourceCentroid;
+
+        // Snap the whole-selection translation to the grid so pasted items keep the alignment the
+        // source had. An even-count selection's centroid sits half a cell off-grid, so anchoring the
+        // centroid straight onto the (off-grid) gizmo drops the paste slightly out of alignment.
+        // Quantizing only the translation preserves each item's exact relative layout AND grid phase.
+        // gridStep 0 = free placement, no snap.
+        var delta = GridUtils.RoundVectorToStep(targetAnchor - sourceCentroid, gridStep);
 
         foreach (var source in sources)
         {
-            var bp = CloneUtils.DeepClone(source.blueprint);
-            bp.mo_groupId = RemapGroup(source.blueprint.mo_groupId, groupMap);
-
-            var item = SpawnFromBlueprint(bp);
+            var item = SpawnFromBlueprint(CloneUtils.DeepClone(source.blueprint));
             if (item == null)
                 continue;
 
             item.transform.SetPositionAndRotation(source.position + delta, source.rotation);
             if (source.scale.HasValue)
                 item.transform.localScale = source.scale.Value;
+
+            ApplyMoConfig(item, source.blueprint, RemapGroup(source.blueprint.mo_groupId, groupMap));
         }
     }
 
@@ -131,10 +145,7 @@ internal static class ItemSpawner
 
         foreach (var source in sources)
         {
-            var bp = CloneUtils.DeepClone(source.blueprint);
-            bp.mo_groupId = RemapGroup(source.blueprint.mo_groupId, groupMap);
-
-            var item = SpawnFromBlueprint(bp);
+            var item = SpawnFromBlueprint(CloneUtils.DeepClone(source.blueprint));
             if (item == null)
                 continue;
 
@@ -145,6 +156,8 @@ internal static class ItemSpawner
             item.transform.SetPositionAndRotation(pos, mirrored);
             if (source.scale.HasValue)
                 item.transform.localScale = source.scale.Value;
+
+            ApplyMoConfig(item, source.blueprint, RemapGroup(source.blueprint.mo_groupId, groupMap));
         }
     }
 

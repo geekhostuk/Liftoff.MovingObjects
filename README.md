@@ -24,6 +24,20 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.2.4 (beta)
+
+Follow-ups to the 1.2.3 copy/paste fix, from in-game playtest:
+
+- **Pasted / mirrored objects keep their MO config and grouping.** Paste and mirror were writing the
+  mod's config onto a throwaway blueprint that the game's spawn path ignores, so pasted objects lost
+  their animation, trigger, and (most visibly) their **group** — a copied group came back as loose
+  single objects. The `mo_*` config is now written onto each spawned item's own blueprint, so a
+  pasted group is a group again and animated/triggered objects keep behaving.
+- **Paste lands on the grid.** A multi-object paste anchored its centroid on the gizmo, which for an
+  even-count selection sits half a cell off-grid — so the paste dropped slightly out of alignment.
+  The paste translation is now snapped to the grid step (respects the grid setting; no-op when the
+  grid is off), so pasted pieces keep their alignment.
+
 ### New in 1.2.3 (beta)
 
 - **Multi-object copy/paste and mirror now keep their layout.** A pasted (or mirrored) selection
@@ -177,7 +191,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.2.3.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.2.4.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`

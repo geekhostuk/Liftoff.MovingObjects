@@ -295,7 +295,7 @@ internal class PlacementUtilsWindow : MonoBehaviour
             return;
 
         var items = Shared.ItemClipboard.items;
-        ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition());
+        ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition(), Shared.PlacementUtils.GridRound);
         Shared.Editor.RequestRefreshGui();
     }
 
@@ -337,7 +337,7 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
         // Disk stamps have no live object, so their blueprint position/rotation ARE the truth.
         var items = blueprints.Select(PlacedItem.FromBlueprint).ToList();
-        ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition());
+        ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition(), Shared.PlacementUtils.GridRound);
         Shared.Editor.RequestRefreshGui();
     }
 
