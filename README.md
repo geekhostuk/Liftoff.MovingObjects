@@ -53,6 +53,7 @@ If you're looking for the original project, the commit history of new-feature wo
   (Unity silently drops non-convex meshes from a dynamic rigidbody, so the body would fall through
   or slide instead of roll), and the **F2 physics preview** now builds a real compound body instead
   of just making the other members visually follow the root — so the preview matches in-flight.
+- **Fully tested** — verified end-to-end both in-game (flight) and in the track builder.
 
 ### New in 1.2.0
 
