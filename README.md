@@ -34,6 +34,10 @@ Editor hotkeys and group editing:
 - **Shift + middle-click edits group membership.** With a group (or any item) selected, Shift+MMB a
   loose object to **add** it to the group, or Shift+MMB a current member to **remove** it — expand or
   shrink a group without rebuilding it. Shift+MMB from a lone selection seeds a new group.
+- **Greatly expanded [User Guide](USERGUIDE.md).** Brought current to 1.2.7 (F5/F9, Shift+MMB, the
+  experimental spectator-sync config option) and given a large **[Recipes cookbook](USERGUIDE.md#recipes--worked-examples)**
+  — ~40 worked examples with exact settings for fans, pendulums, elevators, portals, catapults,
+  wind tunnels, speed pads, stamps, and more.
 
 ### New in 1.2.6 (beta)
 
