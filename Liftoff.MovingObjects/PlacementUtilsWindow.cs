@@ -45,6 +45,7 @@ internal class PlacementUtilsWindow : MonoBehaviour
     private int _arrayCount = 3;
     private Button _copySelectionButton;
     private Button _pasteSelectionButton;
+    private Button _duplicateSelectionButton;
     private Button _mirrorButton;
     private TextField _stampNameField;
     private Button _saveStampButton;
@@ -99,15 +100,23 @@ internal class PlacementUtilsWindow : MonoBehaviour
             return;
         _fakeGroupContext?.Dispose();
 
-        var childs = FindItemsByGroupId(selectedItem.blueprint.mo_groupId)
-            .Select(info => info.gameObject).Where(obj => obj != selectedItem.gameObject).ToList();
+        var members = FindItemsByGroupId(selectedItem.blueprint.mo_groupId);
+        var childs = members.Select(info => info.gameObject)
+            .Where(obj => obj != selectedItem.gameObject).ToList();
         _fakeGroupContext = FakeGroup.GroupObjects(selectedItem.gameObject, childs, false);
 
-        foreach (var child in childs)
+        // Tag each highlighted member with ITS OWN blueprint (previously every member got the clicked
+        // item's blueprint, so the pink group collapsed to a single item when copied). This makes the
+        // auto-highlighted group a real multi-item selection that copy/stamp/duplicate capture whole.
+        // The clicked root carries the game's own selection and is folded in via _selectedItem in
+        // GetSelectedPlacedItems, so it isn't re-highlighted here.
+        foreach (var info in members)
         {
-            var groupHighlightObj = Highlight(child);
+            if (info.gameObject == selectedItem.gameObject)
+                continue;
+            var groupHighlightObj = Highlight(info.gameObject);
             if (groupHighlightObj != null)
-                groupHighlightObj.AddComponent<GroupSelectionInfo>().trackBlueprint = selectedItem.blueprint;
+                groupHighlightObj.AddComponent<GroupSelectionInfo>().trackBlueprint = info.blueprint;
         }
     }
 
@@ -234,6 +243,10 @@ internal class PlacementUtilsWindow : MonoBehaviour
         _pasteSelectionButton = new Button(PasteSelection) { text = "Paste selection", focusable = false };
         container.Add(_pasteSelectionButton);
 
+        _duplicateSelectionButton = new Button(DuplicateSelectionInPlace)
+            { text = "Duplicate selection in place", focusable = false };
+        container.Add(_duplicateSelectionButton);
+
         _mirrorButton = new Button(MirrorSelection) { text = "Mirror selection", focusable = false };
         container.Add(_mirrorButton);
 
@@ -262,20 +275,30 @@ internal class PlacementUtilsWindow : MonoBehaviour
     private List<PlacedItem> GetSelectedPlacedItems()
     {
         var items = new List<PlacedItem>();
+        var seen = new HashSet<TrackBlueprint>();
 
-        foreach (var blueprint in FindObjectsOfType<GroupSelectionInfo>()
-                     .Select(info => info.trackBlueprint)
-                     .Where(blueprint => blueprint != null)
-                     .Distinct())
+        void Add(TrackBlueprint blueprint, Transform transform)
         {
-            var flag = EditorUtils.FindFlagByBlueprint(blueprint);
-            if (flag != null)
-                items.Add(PlacedItem.FromLive(CloneUtils.DeepClone(blueprint), flag.transform));
+            if (blueprint == null || transform == null || !seen.Add(blueprint))
+                return;
+            items.Add(PlacedItem.FromLive(CloneUtils.DeepClone(blueprint), transform));
         }
 
-        if (items.Count == 0 && _selectedItem?.blueprint != null && _selectedItem.gameObject != null)
-            items.Add(PlacedItem.FromLive(CloneUtils.DeepClone(_selectedItem.blueprint),
-                _selectedItem.gameObject.transform));
+        // The clicked item itself. For a pink group-click this is the group root (its members are
+        // added below); for a lone selected item it's the whole selection. Folding it in here (rather
+        // than only as a count==0 fallback) is what lets a group-click be copied/stamped as one unit.
+        if (_selectedItem?.blueprint != null && _selectedItem.gameObject != null)
+            Add(_selectedItem.blueprint, _selectedItem.gameObject.transform);
+
+        // Every marked item: the pink group members, or a manual middle-click multi-select set. Each
+        // marker now carries its own blueprint, so this is the rest of the group. Deduped against the
+        // root by blueprint reference.
+        foreach (var info in FindObjectsOfType<GroupSelectionInfo>())
+        {
+            var flag = EditorUtils.FindFlagByBlueprint(info.trackBlueprint);
+            if (flag != null)
+                Add(info.trackBlueprint, flag.transform);
+        }
 
         return items;
     }
@@ -294,10 +317,35 @@ internal class PlacementUtilsWindow : MonoBehaviour
         if (!Shared.ItemClipboard.HasData)
             return;
 
+        // Paste at the gizmo, as one fresh group when it's more than one item — the same rule stamp
+        // uses, so copying an ungrouped multi-selection now comes back grouped just like a stamp does.
         var items = Shared.ItemClipboard.items;
-        ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition(), Shared.PlacementUtils.GridRound);
+        ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition(),
+            Shared.PlacementUtils.GridRound, FreshGroupId(items));
         Shared.Editor.RequestRefreshGui();
     }
+
+    // Duplicate the current selection (a pink group counts as one selection — see OnItemSelected)
+    // exactly where it stands: anchoring the captured centroid onto itself makes the paste
+    // translation zero, so each copy lands on top of its original instead of at the gizmo. The copies
+    // arrive as one fresh group, ready to be clicked and dragged off. gridStep 0 = no snap, so they
+    // stay exactly coincident with the originals.
+    private void DuplicateSelectionInPlace()
+    {
+        var items = GetSelectedPlacedItems();
+        if (items.Count == 0)
+            return;
+
+        var centroid = ItemSpawner.Centroid(items);
+        ItemSpawner.Paste(items, centroid, centroid, 0f, FreshGroupId(items));
+        Shared.Editor.RequestRefreshGui();
+    }
+
+    // A paste/stamp/duplicate of more than one item comes in as a single fresh group so it can be
+    // grabbed (and ungrouped with Ctrl+G) as a unit — one rule shared by all three so they behave the
+    // same. A lone item stays ungrouped (GroupFlags ignores single-member groups anyway).
+    private static string FreshGroupId(IReadOnlyCollection<PlacedItem> items)
+        => items.Count > 1 ? Guid.NewGuid().ToString("D") : null;
 
     private void MirrorSelection()
     {
@@ -335,18 +383,12 @@ internal class PlacementUtilsWindow : MonoBehaviour
         if (blueprints == null || blueprints.Count == 0)
             return;
 
-        // Disk stamps have no live object, so their blueprint position/rotation ARE the truth.
+        // Disk stamps have no live object, so their blueprint position/rotation ARE the truth. A stamp
+        // is a reusable prefab: insert it as one cohesive fresh group (see FreshGroupId) so it can be
+        // nudged into place and ungrouped with Ctrl+G as a unit.
         var items = blueprints.Select(PlacedItem.FromBlueprint).ToList();
-
-        // A stamp is a reusable prefab: insert it as one cohesive group so it can be nudged into
-        // place (and ungrouped with Ctrl+G later) as a unit. Without this, whether the stamp came in
-        // grouped depended on whether the original selection happened to be grouped before saving —
-        // ungrouped selections stamped in loose, grouped ones stamped in as a group. Force one fresh
-        // group over the whole stamp so the result is consistent. (A lone-item stamp is left loose;
-        // GroupFlags ignores single-member groups anyway.)
-        var forceGroupId = items.Count > 1 ? Guid.NewGuid().ToString("D") : null;
         ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition(),
-            Shared.PlacementUtils.GridRound, forceGroupId);
+            Shared.PlacementUtils.GridRound, FreshGroupId(items));
         Shared.Editor.RequestRefreshGui();
     }
 

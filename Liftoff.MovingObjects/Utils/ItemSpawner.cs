@@ -52,8 +52,26 @@ internal static class ItemSpawner
                 return null;
             }
 
-            editor.AssignIDToTrackItem(item);
+            // Order matters: ApplyBlueprint BEFORE AssignIDToTrackItem.
+            //
+            // CreateNewTrackItem instantiates the prefab, whose Awake gives the item a fresh DEFAULT
+            // blueprint sitting at the origin. The game's ApplyBlueprint *replaces* the item's
+            // blueprint field with the object we pass (it does `this.blueprint = arg`, then drives the
+            // transform from it) — it does not copy into the existing one. AssignIDToTrackItem is what
+            // registers `item.Blueprint` into Track.blueprints, i.e. the list the game actually
+            // serialises when the track is saved.
+            //
+            // If we assign first and apply second (the original order), Track.blueprints captures the
+            // default origin blueprint, and ApplyBlueprint then swaps the item onto OUR blueprint —
+            // orphaning the registered one. At save the store-loop syncs the item's *current* blueprint
+            // (ours) from its transform, but the file is written from Track.blueprints, which still
+            // holds the orphaned origin blueprint that nothing ever updated. Result: every spawned
+            // item reloads stacked on the origin with default rotation and no MO config (honk's
+            // "phantom stamps from yesterday", still present after the v1.2.5 attempt). Applying first
+            // means the item already holds our blueprint when AssignIDToTrackItem registers it, so the
+            // saved object is the one we configure and the one the store-loop keeps in sync.
             item.ApplyBlueprint(blueprint);
+            editor.AssignIDToTrackItem(item);
             return item;
         }
         catch (Exception e)
@@ -84,13 +102,11 @@ internal static class ItemSpawner
     // every object's animation, trigger, and grouping. Deep-cloned so repeated spawns from one source
     // don't share config objects. groupId is passed in (remapped to a fresh group, or null).
     //
-    // This also persists the item's LIVE transform back into its blueprint. Callers set the live
-    // transform (position/rotation) for the on-screen result, but the game serialises a track from
-    // each item's blueprint.position/rotation, NOT from the live transform (the editor's own place/
-    // drag code is what normally writes those fields; a mod-spawned item bypasses it). Left unsynced,
-    // a freshly created item keeps its default (0,0,0) blueprint, so every pasted/stamped/duplicated
-    // item SAVES at the origin and reappears stacked there when the track is reloaded. Writing the
-    // transform here is the same hand-sync SaveStamp and the animation editor already do.
+    // It also copies the item's live transform into blueprint.position/rotation. This is now
+    // belt-and-suspenders: with the SpawnFromBlueprint ordering fix, the item's blueprint IS the one
+    // registered in Track.blueprints, and the game re-syncs it from the transform at save (its
+    // StoreBlueprint). We still write it so the blueprint is self-consistent immediately after spawn,
+    // matching the hand-sync SaveStamp and the animation editor already do.
     private static void ApplyMoConfig(Component item, TrackBlueprint source, string groupId)
     {
         var blueprint = ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(item);

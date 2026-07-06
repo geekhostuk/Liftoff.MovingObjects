@@ -24,6 +24,26 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.2.6 (beta)
+
+- **The origin bug is actually fixed this time.** Pasted / stamped / duplicated objects no longer
+  collapse onto the origin after a save + reload. Root cause (confirmed from the game's own IL, not
+  guessed): a freshly spawned item is born with a default blueprint at the origin, and the mod
+  registered *that* blueprint into the track before applying the real one — so the game's spawn path
+  swapped the item onto our blueprint but the **origin** one stayed in the saved track. The mod now
+  applies the blueprint *before* the item is registered, so the object that gets saved is the one you
+  actually placed. (Tracks saved under the old bug keep their stray origin copies — delete those once.)
+- **Copy/paste groups like stamp does.** Copying an ungrouped multi-selection now pastes back as one
+  group, matching stamp behaviour (both use one shared rule: a paste/stamp/duplicate of more than one
+  item arrives as a single fresh group).
+- **A highlighted group is a real selection.** Clicking one object of a group (the whole group turns
+  pink) now counts as selecting the whole group — Copy, Save-to-stamp, Mirror and Duplicate all
+  capture every member, instead of collapsing to just the clicked object. No more re-selecting a
+  group piece by piece.
+- **New "Duplicate selection in place" button.** Duplicates the current selection (a pink group
+  counts as one selection) exactly on top of the originals as a fresh group — grab it and drag it
+  off. No detour via the gizmo/origin.
+
 ### New in 1.2.5 (beta)
 
 Two more paste/stamp fixes from in-game playtest:
@@ -206,7 +226,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.2.5.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.2.6.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`
