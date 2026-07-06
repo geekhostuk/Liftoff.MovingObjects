@@ -762,10 +762,29 @@ internal class PlacementUtilsWindow : MonoBehaviour
             if (blueprint == null || !seen.Add(blueprint))
                 continue;
 
-            var highlightObj = Highlight(flag.gameObject);
-            if (highlightObj != null)
-                highlightObj.AddComponent<GroupSelectionInfo>().trackBlueprint = blueprint;
+            MarkSelected(flag.gameObject, blueprint);
         }
+    }
+
+    // Add this object to the multi-selection. The GroupSelectionInfo marker — NOT the magenta
+    // overlay — is what CollectSelectionFlags reads, so the marker is what actually makes the item
+    // part of the selection. The game builds each object's hover-overlay lazily (only once the cursor
+    // has passed over it), so a freshly loaded, never-hovered block has no overlay for Highlight() to
+    // clone — the cause of "select all only caught the blocks I'd moused over". We therefore carry the
+    // marker on the game overlay when it exists (which also gives the magenta highlight) and otherwise
+    // on a bare child GameObject, so the item is captured either way. DeselectAll destroys the
+    // marker's gameObject in both cases, and HandleSelection's GetComponentInChildren toggle finds it
+    // in both cases. The bare carrier has no TrackItem component, so the game's save ignores it.
+    private void MarkSelected(GameObject target, TrackBlueprint blueprint)
+    {
+        var carrier = Highlight(target);
+        if (carrier == null)
+        {
+            carrier = new GameObject(target.name + "_Selection_MO");
+            carrier.transform.SetParent(target.transform, false);
+        }
+
+        carrier.AddComponent<GroupSelectionInfo>().trackBlueprint = blueprint;
     }
 
     private void HandleSelection()

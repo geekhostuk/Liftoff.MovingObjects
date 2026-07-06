@@ -24,6 +24,17 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.2.10 (beta)
+
+- **"Select all" now really catches everything.** In 1.2.9 it only picked up blocks the mouse cursor
+  had already passed over. The game builds each object's magenta hover-overlay *lazily* — only once
+  you've hovered it — and select-all was hanging its selection marker on that overlay, so any block
+  you'd never moused over was silently skipped (thanks Honk for the pin-sharp repro). Selection no
+  longer depends on the overlay: every object gets a marker whether or not the game has built its
+  overlay yet, so **Select all** captures the whole map on a freshly loaded track. (One cosmetic
+  caveat: a never-hovered block is selected but may not *look* magenta, because that highlight art is
+  the game's own hover overlay — verify with F9/Copy/Ctrl+G, which now act on every block.)
+
 ### New in 1.2.9 (beta)
 
 - **Select all objects.** New **"Select all objects"** button in the Placement utils window marks
@@ -269,7 +280,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.2.9.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.2.10.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`

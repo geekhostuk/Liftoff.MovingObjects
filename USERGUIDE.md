@@ -4,7 +4,7 @@ This guide covers every feature of the mod and how to use it, for **track author
 want to *fly* maps that use moving objects, you just need the mod installed (see
 [Installation](#installation)) — everything below is for building.
 
-> **Beta note (v1.2.9).** Every feature compiles against the current game and is wired end-to-end,
+> **Beta note (v1.2.10).** Every feature compiles against the current game and is wired end-to-end,
 > and the core animation/physics/trigger paths have been playtested in-game. A few of the newest
 > runtime paths and item-spawn features (Select-all, Duplicate/Array/Copy-Paste/Mirror/Stamps,
 > sound-on-trigger, hazard-on-contact, experimental spectator sync) are guarded so a wrong assumption
@@ -294,7 +294,10 @@ copy/mirror/save tools fall back to the single selected item.
 **Select all objects** — the **Select all objects** button marks every placed item on the map at
 once, so you can copy, mirror, save-to-stamp, delete (F9), or grab and move the whole track in one
 action. Existing groups are left as-is: move everything with each sub-group still intact, or press
-**Ctrl+G** to weld the lot into a single group.
+**Ctrl+G** to weld the lot into a single group. It catches every object on a freshly loaded track,
+including blocks you've never moused over — though a never-hovered block, while fully selected, may
+not turn magenta until the game builds its hover highlight (that art is cosmetic; the operations act
+on the whole selection regardless).
 
 ### Duplicate / array / mirror / delete
 - **Duplicate item** — clone the selected item one grid step over, carrying its full MO config
