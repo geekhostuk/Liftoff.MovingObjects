@@ -24,6 +24,25 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.2.8 (beta)
+
+Group fixes from in-game playtest:
+
+- **Grouped objects spin/move in flight again.** A group whose members all carried animation config
+  (e.g. a fan built up from copies) froze in flight while spinning fine in preview: injection gave
+  *every* member its own kinematic body and they fought over the shared pose to a standstill. Flight
+  now runs **one motion driver per group** — only the group root gets a player, the other members are
+  parented under it and ride along — so the whole assembly moves as one body. (Also fixes a latent
+  transform-cycle from the root being reparented under its own group object.)
+- **Copies of copies are complete again.** Copy / duplicate (F5) / delete (F9) / mirror / stamp now
+  take group membership from the authoritative `mo_groupId`, not from the pink-highlight markers. A
+  freshly spawned copy hasn't got the game's selection overlay yet, so the marker-based capture
+  silently dropped those members — copying a copy lost pieces, and copying *that* lost more. Capture
+  is now by group id, so every generation comes out whole.
+- **Animation editor panel fits the screen.** With steps plus the spinner/orbit/physics controls the
+  panel used to run off the bottom of a 1080p screen with the lower controls unreachable. The panel
+  content is now wrapped in a height-capped scroll view.
+
 ### New in 1.2.7 (beta)
 
 Editor hotkeys and group editing:
@@ -241,7 +260,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.2.7.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.2.8.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`

@@ -273,36 +273,57 @@ internal class PlacementUtilsWindow : MonoBehaviour
         return gizmo != null ? gizmo.transform.position : Vector3.zero;
     }
 
+    // The live flag Components of the current selection, deduped by blueprint. Membership is taken
+    // from the AUTHORITATIVE source — mo_groupId — not from the pink highlight markers.
+    //
+    // The markers (GroupSelectionInfo) only exist where Highlight() found the game's
+    // "<name>(Clone)_Overlay" child; a freshly spawned copy hasn't been through the game's placement
+    // flow, so some members have no overlay yet and got no marker. Capturing by marker therefore
+    // dropped those members, so copying a copy came back missing pieces — and copying THAT lost even
+    // more (honk's "only the handle left", degenerating each generation). Seeding from the selection
+    // and then expanding every seed's whole group by id captures the group whole, overlay or not.
+    private List<Component> CollectSelectionFlags()
+    {
+        var flags = new List<Component>();
+        var seenBlueprints = new HashSet<TrackBlueprint>();
+        var seenGroups = new HashSet<string>();
+
+        void AddFlag(Component flag)
+        {
+            if (flag == null)
+                return;
+            var blueprint = ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(flag);
+            if (blueprint == null || !seenBlueprints.Add(blueprint))
+                return;
+            flags.Add(flag);
+
+            // Pull in the rest of this member's group by id (once per group). A loose item has no
+            // group id, so it stays a selection of one.
+            if (!string.IsNullOrEmpty(blueprint.mo_groupId) && seenGroups.Add(blueprint.mo_groupId))
+                foreach (var member in EditorUtils.FindFlagsByGroupId(blueprint.mo_groupId))
+                    AddFlag(member);
+        }
+
+        // Seeds: the clicked item plus any manual middle-click multi-select markers. Each seed's
+        // whole group is expanded in AddFlag, so a pink group-click copies/stamps as one cohesive unit.
+        if (_selectedItem?.blueprint != null)
+            AddFlag(EditorUtils.FindFlagByBlueprint(_selectedItem.blueprint));
+        foreach (var info in FindObjectsOfType<GroupSelectionInfo>())
+            AddFlag(EditorUtils.FindFlagByBlueprint(info.trackBlueprint));
+
+        return flags;
+    }
+
     // The current selection as PlacedItems: each a deep-cloned blueprint plus the item's LIVE world
-    // transform (blueprint position/rotation are stale mid-edit, so we read the transform). Comes
-    // from the enchanted multi-select set (GroupSelectionInfo markers), or the single selected item
-    // as a fallback.
+    // transform (blueprint position/rotation are stale mid-edit, so we read the transform).
     private List<PlacedItem> GetSelectedPlacedItems()
     {
         var items = new List<PlacedItem>();
-        var seen = new HashSet<TrackBlueprint>();
-
-        void Add(TrackBlueprint blueprint, Transform transform)
+        foreach (var flag in CollectSelectionFlags())
         {
-            if (blueprint == null || transform == null || !seen.Add(blueprint))
-                return;
-            items.Add(PlacedItem.FromLive(CloneUtils.DeepClone(blueprint), transform));
-        }
-
-        // The clicked item itself. For a pink group-click this is the group root (its members are
-        // added below); for a lone selected item it's the whole selection. Folding it in here (rather
-        // than only as a count==0 fallback) is what lets a group-click be copied/stamped as one unit.
-        if (_selectedItem?.blueprint != null && _selectedItem.gameObject != null)
-            Add(_selectedItem.blueprint, _selectedItem.gameObject.transform);
-
-        // Every marked item: the pink group members, or a manual middle-click multi-select set. Each
-        // marker now carries its own blueprint, so this is the rest of the group. Deduped against the
-        // root by blueprint reference.
-        foreach (var info in FindObjectsOfType<GroupSelectionInfo>())
-        {
-            var flag = EditorUtils.FindFlagByBlueprint(info.trackBlueprint);
-            if (flag != null)
-                Add(info.trackBlueprint, flag.transform);
+            var blueprint = ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(flag);
+            if (blueprint != null)
+                items.Add(PlacedItem.FromLive(CloneUtils.DeepClone(blueprint), flag.transform));
         }
 
         return items;
@@ -373,30 +394,10 @@ internal class PlacementUtilsWindow : MonoBehaviour
         Shared.Editor.RequestRefreshGui();
     }
 
-    // The live flag Components of the current selection (root + marked group/multi-select members),
-    // deduped by blueprint. The delete-side counterpart to GetSelectedPlacedItems, which returns
-    // cloned blueprints for spawning; delete needs the actual live objects to remove.
-    private List<Component> GetSelectedFlags()
-    {
-        var flags = new List<Component>();
-        var seen = new HashSet<TrackBlueprint>();
-
-        void Add(TrackBlueprint blueprint)
-        {
-            if (blueprint == null || !seen.Add(blueprint))
-                return;
-            var flag = EditorUtils.FindFlagByBlueprint(blueprint);
-            if (flag != null)
-                flags.Add(flag);
-        }
-
-        if (_selectedItem?.blueprint != null)
-            Add(_selectedItem.blueprint);
-        foreach (var info in FindObjectsOfType<GroupSelectionInfo>())
-            Add(info.trackBlueprint);
-
-        return flags;
-    }
+    // The live flag Components of the current selection — the delete-side counterpart to
+    // GetSelectedPlacedItems (which clones blueprints for spawning; delete needs the live objects to
+    // remove). Same group-id-authoritative capture, so deleting a group removes it whole.
+    private List<Component> GetSelectedFlags() => CollectSelectionFlags();
 
     private void MirrorSelection()
     {

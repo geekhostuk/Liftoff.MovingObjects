@@ -35,6 +35,7 @@ internal class AnimationEditorWindow : MonoBehaviour
     private TrackBlueprint _blueprint;
     private MonoBehaviour _item;
     private VisualElement _root;
+    private ScrollView _panelScroll;
     private GameObject _tempAnimationObject;
 
     private GameObject _tempPhysicsObject;
@@ -471,15 +472,46 @@ internal class AnimationEditorWindow : MonoBehaviour
         return field;
     }
 
-    // Copy/Paste of the whole MO configuration between objects — author one moving gate, stamp it
-    // onto twenty. Same idempotent code-added pattern; lives on the always-present #root container.
-    private void EnsureClipboardControls()
+    // Cap the editor panel to the screen and scroll the overflow. The animation box alone now carries
+    // ~20 controls (spinner / orbit / phase / physics plus the step list), so on 1080p the panel ran
+    // off the bottom of the screen with the lower controls unreachable (honk: "the window has too much
+    // content — won't fit anymore"). We wrap the panel content in a ScrollView once. Controls appended
+    // later to animation-box / physics-box land inside it automatically (they're descendants), and the
+    // #root lookups elsewhere still resolve because Q() searches the whole subtree.
+    //
+    // Same idempotent, tree-rebuild-safe contract as the other Ensure* methods: the ScrollView is a
+    // direct child of the #root container, so a surviving _panelScroll whose parent is still that
+    // container means the wrap is intact; a rebuild (F1) recreates #root and we re-wrap the fresh tree.
+    private void EnsurePanelScroll()
     {
         var container = _root.Q<VisualElement>("root");
+        if (container == null || (_panelScroll != null && _panelScroll.parent == container))
+            return;
+
+        _panelScroll = new ScrollView(ScrollViewMode.Vertical);
+        // Leave headroom for the panel's top offset (UpdateMenuPos) so the capped panel stays on-screen.
+        _panelScroll.style.maxHeight = new StyleLength(new Length(85, LengthUnit.Percent));
+
+        foreach (var child in container.Children().ToList())
+            _panelScroll.Add(child);
+        container.Add(_panelScroll);
+    }
+
+    // Home for the panel-content parent: the scroll view once wrapped (see EnsurePanelScroll), else
+    // the raw #root container as a fallback. Code-added controls that belong at panel level go here.
+    private VisualElement PanelContent() => (VisualElement)_panelScroll ?? _root.Q<VisualElement>("root");
+
+    // Copy/Paste of the whole MO configuration between objects — author one moving gate, stamp it
+    // onto twenty. Same idempotent code-added pattern; lives inside the scrollable panel content.
+    private void EnsureClipboardControls()
+    {
+        var container = PanelContent();
         if (container == null)
             return;
 
-        if (_copyConfigButton != null && _copyConfigButton.parent == container)
+        // Contains (not parent ==) because a ScrollView holds its children in an inner contentContainer,
+        // so the button's direct parent isn't the ScrollView itself.
+        if (_copyConfigButton != null && container.Contains(_copyConfigButton))
             return;
 
         _copyConfigButton = new Button(CopyConfig) { text = "Copy MO config", focusable = false };
@@ -543,6 +575,7 @@ internal class AnimationEditorWindow : MonoBehaviour
 
         StartCoroutine(UpdateMenuPos());
 
+        EnsurePanelScroll();
         EnsureClipboardControls();
         _pasteConfigButton?.SetEnabled(Shared.Clipboard.HasData);
 

@@ -259,8 +259,9 @@ public sealed class Plugin : BaseUnityPlugin
         // so this is cheap on subsequent resets and only does real work when the
         // track has changed and new flag GameObjects are present.
         var flags = EditorUtils.FindAllFlags();
-        GroupFlags(flags);
-        InjectPlayers(flags);
+        var groupRoots = ComputeGroupRoots(flags);
+        GroupFlags(flags, groupRoots);
+        InjectPlayers(flags, groupRoots);
 
         foreach (var p in FindObjectsOfType<AnimationPlayer>()) p.enabled = true;
         foreach (var p in FindObjectsOfType<PhysicsPlayer>()) p.enabled = true;
@@ -417,7 +418,7 @@ public sealed class Plugin : BaseUnityPlugin
         return waitForTrigger;
     }
 
-    private static void InjectPlayers(IEnumerable<Component> flags)
+    private static void InjectPlayers(IEnumerable<Component> flags, Dictionary<string, GameObject> groupRoots)
     {
         foreach (var flag in flags)
         {
@@ -427,15 +428,31 @@ public sealed class Plugin : BaseUnityPlugin
             if (blueprint?.mo_triggerOptions != null)
                 waitForTrigger = AddTrigger(blueprint, flag);
 
-            if (blueprint?.mo_animationOptions?.simulatePhysics == true)
-                AddPhysics(blueprint, flag, waitForTrigger);
-            // Continuous modes (spinner / orbit) run without a step list, so gate on them too —
-            // otherwise a spinner-only object gets no AnimationPlayer and never rotates in flight
-            // (it still previews in the editor, which attaches a player unconditionally).
-            else if (blueprint?.mo_animationSteps?.Count > 0
-                     || blueprint?.mo_animationOptions?.spinnerEnabled == true
-                     || blueprint?.mo_animationOptions?.orbitEnabled == true)
-                AddAnimation(blueprint, flag, waitForTrigger);
+            // In a group, only the elected root drives motion; the other members are transform-parented
+            // under it by GroupFlags and ride along as its compound body. Give every member its own
+            // player and each gets its own kinematic Rigidbody, all of them driving the shared body
+            // pose toward their own captured _initPosition — they fight and the group locks up. That is
+            // exactly why honk's fan (shaft + 4 blades, all five carrying animation config) span in
+            // preview, which uses a single follow-driver, yet froze in flight. So skip the motion
+            // player for non-root grouped members. Triggers and hazard-on-contact don't add a
+            // competing body, so they still apply per member.
+            var isNonRootGroupMember =
+                !string.IsNullOrEmpty(blueprint?.mo_groupId)
+                && groupRoots.TryGetValue(blueprint.mo_groupId, out var root)
+                && root != flag.gameObject;
+
+            if (!isNonRootGroupMember)
+            {
+                if (blueprint?.mo_animationOptions?.simulatePhysics == true)
+                    AddPhysics(blueprint, flag, waitForTrigger);
+                // Continuous modes (spinner / orbit) run without a step list, so gate on them too —
+                // otherwise a spinner-only object gets no AnimationPlayer and never rotates in flight
+                // (it still previews in the editor, which attaches a player unconditionally).
+                else if (blueprint?.mo_animationSteps?.Count > 0
+                         || blueprint?.mo_animationOptions?.spinnerEnabled == true
+                         || blueprint?.mo_animationOptions?.orbitEnabled == true)
+                    AddAnimation(blueprint, flag, waitForTrigger);
+            }
 
             // Hazard-on-contact turns the moving object into a drone-killer (idempotent).
             if (blueprint?.mo_animationOptions?.killOnContact == true &&
@@ -444,10 +461,30 @@ public sealed class Plugin : BaseUnityPlugin
         }
     }
 
-    private static void GroupFlags(IEnumerable<Component> flags)
+    // One motion driver per group: the member whose blueprint carries the MO config is the root that
+    // GroupFlags parents the others under and that InjectPlayers gives the single player. When several
+    // members carry config — an old track where a copy propagated the animation onto every block
+    // (honk's fan) — we still elect exactly one, deterministically (first in the stable flag order, so
+    // the same member wins on every reset and the idempotent "already grouped?" check stays valid), so
+    // the group moves as one body instead of freezing.
+    private static Dictionary<string, GameObject> ComputeGroupRoots(IEnumerable<Component> flags)
+    {
+        var roots = new Dictionary<string, GameObject>();
+        foreach (var flag in flags)
+        {
+            var blueprint = ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(flag);
+            if (string.IsNullOrEmpty(blueprint?.mo_groupId) || blueprint.mo_animationOptions == null)
+                continue;
+            if (!roots.ContainsKey(blueprint.mo_groupId))
+                roots[blueprint.mo_groupId] = flag.gameObject;
+        }
+
+        return roots;
+    }
+
+    private static void GroupFlags(IEnumerable<Component> flags, Dictionary<string, GameObject> rootObjects)
     {
         var groups = new Dictionary<string, List<GameObject>>();
-        var rootObjects = new Dictionary<string, GameObject>();
 
         foreach (var flag in flags)
         {
@@ -460,9 +497,6 @@ public sealed class Plugin : BaseUnityPlugin
                 list.Add(flag.gameObject);
             else
                 groups[groupId] = new List<GameObject> { flag.gameObject };
-
-            if (blueprint.mo_animationOptions != null)
-                rootObjects[groupId] = flag.gameObject;
         }
 
         foreach (var (groupId, gameObjects) in groups)
@@ -486,7 +520,13 @@ public sealed class Plugin : BaseUnityPlugin
             groupObject.transform.rotation = rootObj.transform.rotation;
 
             foreach (var o in gameObjects)
+            {
+                // Skip the root itself: it is the parent of groupObject, so reparenting it under
+                // groupObject would ask Unity to make it its own descendant (a transform cycle).
+                if (o == rootObj)
+                    continue;
                 o.transform.parent = groupObject.transform;
+            }
         }
     }
 }
