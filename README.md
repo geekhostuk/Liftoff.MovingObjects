@@ -24,6 +24,17 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.2.7 (beta)
+
+Editor hotkeys and group editing:
+
+- **F5 — Duplicate selection in place**, **F9 — Delete selection.** Hotkeys for the selection tools
+  (both also have toolbar buttons). A pink group counts as one selection, so both act on the whole
+  group. Delete goes through the editor's own removal so it's gone from the saved track too.
+- **Shift + middle-click edits group membership.** With a group (or any item) selected, Shift+MMB a
+  loose object to **add** it to the group, or Shift+MMB a current member to **remove** it — expand or
+  shrink a group without rebuilding it. Shift+MMB from a lone selection seeds a new group.
+
 ### New in 1.2.6 (beta)
 
 - **The origin bug is actually fixed this time.** Pasted / stamped / duplicated objects no longer
@@ -226,7 +237,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.2.6.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.2.7.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`

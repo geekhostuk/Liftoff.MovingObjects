@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using BepInEx.Logging;
 using UnityEngine;
 using Logger = BepInEx.Logging.Logger;
@@ -78,6 +79,36 @@ internal static class ItemSpawner
         {
             Log.LogError($"Spawn from blueprint failed: {e}");
             return null;
+        }
+    }
+
+    // Remove a live placed item (the flag Component) the same way the editor's own erase does:
+    // TrackEditor.RemoveTrackItem drops the blueprint from the saved track (Track.blueprints), removes
+    // it from the instance list, and destroys the GameObject — so a deleted item stays deleted across
+    // save/reload. Its parameter is the obfuscated item base type that every flag derives from; we
+    // can't name that type to pass a Component through a normal call, so we invoke it reflectively
+    // (the runtime flag object is assignable to that parameter, so the bind succeeds).
+    public static void RemoveItem(Component flag)
+    {
+        try
+        {
+            var editor = TrackEditor.use;
+            if (editor == null || flag == null)
+                return;
+
+            var method = typeof(TrackEditor).GetMethod("RemoveTrackItem",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            if (method == null)
+            {
+                Log.LogWarning("TrackEditor.RemoveTrackItem not found; can't delete.");
+                return;
+            }
+
+            method.Invoke(editor, new object[] { flag });
+        }
+        catch (Exception e)
+        {
+            Log.LogError($"Remove item failed: {e}");
         }
     }
 

@@ -46,6 +46,7 @@ internal class PlacementUtilsWindow : MonoBehaviour
     private Button _copySelectionButton;
     private Button _pasteSelectionButton;
     private Button _duplicateSelectionButton;
+    private Button _deleteSelectionButton;
     private Button _mirrorButton;
     private TextField _stampNameField;
     private Button _saveStampButton;
@@ -244,8 +245,12 @@ internal class PlacementUtilsWindow : MonoBehaviour
         container.Add(_pasteSelectionButton);
 
         _duplicateSelectionButton = new Button(DuplicateSelectionInPlace)
-            { text = "Duplicate selection in place", focusable = false };
+            { text = "Duplicate selection in place (F5)", focusable = false };
         container.Add(_duplicateSelectionButton);
+
+        _deleteSelectionButton = new Button(DeleteSelection)
+            { text = "Delete selection (F9)", focusable = false };
+        container.Add(_deleteSelectionButton);
 
         _mirrorButton = new Button(MirrorSelection) { text = "Mirror selection", focusable = false };
         container.Add(_mirrorButton);
@@ -346,6 +351,52 @@ internal class PlacementUtilsWindow : MonoBehaviour
     // same. A lone item stays ungrouped (GroupFlags ignores single-member groups anyway).
     private static string FreshGroupId(IReadOnlyCollection<PlacedItem> items)
         => items.Count > 1 ? Guid.NewGuid().ToString("D") : null;
+
+    // Delete the current selection (a pink group counts as one selection — see OnItemSelected). Each
+    // item is removed via the editor's own RemoveTrackItem so it's gone from the saved track too, not
+    // just hidden. The selection overlay (highlight clones + fake-group components) references the
+    // objects we're about to destroy, so it's torn down first.
+    private void DeleteSelection()
+    {
+        var flags = GetSelectedFlags();
+        if (flags.Count == 0)
+            return;
+
+        _fakeGroupContext?.Dispose();
+        _fakeGroupContext = null;
+        DeselectAll();
+        _selectedItem = null;
+
+        foreach (var flag in flags)
+            ItemSpawner.RemoveItem(flag);
+
+        Shared.Editor.RequestRefreshGui();
+    }
+
+    // The live flag Components of the current selection (root + marked group/multi-select members),
+    // deduped by blueprint. The delete-side counterpart to GetSelectedPlacedItems, which returns
+    // cloned blueprints for spawning; delete needs the actual live objects to remove.
+    private List<Component> GetSelectedFlags()
+    {
+        var flags = new List<Component>();
+        var seen = new HashSet<TrackBlueprint>();
+
+        void Add(TrackBlueprint blueprint)
+        {
+            if (blueprint == null || !seen.Add(blueprint))
+                return;
+            var flag = EditorUtils.FindFlagByBlueprint(blueprint);
+            if (flag != null)
+                flags.Add(flag);
+        }
+
+        if (_selectedItem?.blueprint != null)
+            Add(_selectedItem.blueprint);
+        foreach (var info in FindObjectsOfType<GroupSelectionInfo>())
+            Add(info.trackBlueprint);
+
+        return flags;
+    }
 
     private void MirrorSelection()
     {
@@ -560,6 +611,10 @@ internal class PlacementUtilsWindow : MonoBehaviour
             ToggleWireframe();
         else if (_root != null && Input.GetKeyDown(KeyCode.F2))
             GuiUtils.ToggleVisible(_root);
+        else if (Input.GetKeyDown(KeyCode.F5))
+            DuplicateSelectionInPlace();
+        else if (Input.GetKeyDown(KeyCode.F9))
+            DeleteSelection();
 
         RefreshTransformFields();
         NudgeGizmo();
@@ -570,8 +625,16 @@ internal class PlacementUtilsWindow : MonoBehaviour
         if (Input.GetKey(KeyCode.LeftControl))
             HandleEnchantedKeys();
 
-        if (_selectedItem == null && Input.GetMouseButtonDown((int)MouseButton.MiddleMouse)) 
-            HandleSelection();
+        if (Input.GetMouseButtonDown((int)MouseButton.MiddleMouse))
+        {
+            var shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            if (shift && _selectedItem != null)
+                // Shift+MMB while something is selected edits the selected group's membership.
+                HandleGroupMembershipEdit();
+            else if (_selectedItem == null)
+                // Plain MMB with nothing selected toggles an item into the multi-select set.
+                HandleSelection();
+        }
     }
 
     private void ToggleWireframe()
@@ -703,6 +766,54 @@ internal class PlacementUtilsWindow : MonoBehaviour
             return;
 
         groupHighlightObj.AddComponent<GroupSelectionInfo>().trackBlueprint = blueprint;
+    }
+
+    // Shift+MMB while an item/group is selected: toggle the clicked object's membership in the
+    // selected group. Click a loose object to ADD it (expanding the group); click a current member to
+    // REMOVE it. Grouping in the editor is driven entirely by mo_groupId, so add/remove is just a
+    // write to that field. If the selected item isn't grouped yet, a fresh group id is seeded onto it
+    // first, so shift-clicking a second object starts a group from a lone selection. Adding an object
+    // that was in another group moves it into this one. The anchor (the selected item itself) is left
+    // alone. The pink highlight + fake group are rebuilt afterwards so the change shows immediately and
+    // the group stays selected.
+    private void HandleGroupMembershipEdit()
+    {
+        if (_selectedItem?.blueprint == null || _selectedItem.gameObject == null)
+            return;
+        if (EventSystem.current.IsPointerOverGameObject())
+            return;
+
+        var ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        if (!Physics.Raycast(ray, out var raycastHit))
+            return;
+
+        var trackItemFlag = EditorUtils.FindFlagInParent(raycastHit.transform.gameObject);
+        if (trackItemFlag == null)
+            return;
+
+        var clickedBlueprint = ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(trackItemFlag);
+        if (clickedBlueprint == null || ReferenceEquals(clickedBlueprint, _selectedItem.blueprint))
+            return;
+
+        var groupId = _selectedItem.blueprint.mo_groupId;
+        if (string.IsNullOrEmpty(groupId))
+        {
+            groupId = Guid.NewGuid().ToString("D");
+            _selectedItem.blueprint.mo_groupId = groupId;
+        }
+
+        if (string.Equals(clickedBlueprint.mo_groupId, groupId))
+        {
+            clickedBlueprint.mo_groupId = null;
+            trackItemFlag.gameObject.transform.parent = null;
+        }
+        else
+        {
+            clickedBlueprint.mo_groupId = groupId;
+        }
+
+        OnItemSelected(_selectedItem);
+        Shared.Editor.RequestRefreshGui();
     }
 
 
