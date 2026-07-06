@@ -109,7 +109,6 @@ A floating panel for map-wide tools (grid, selection, stats, spawning). Toggle i
 | **F4** | Toggle wireframe view |
 | **F5** | **Duplicate selection in place** — a copy lands exactly on the originals as one fresh group; grab and drag it off |
 | **F9** | **Delete selection** — removes the whole selection through the editor's own removal, so it's gone from the saved track too |
-| **Ctrl+A** | **Select all objects** — mark every placed item on the map as one multi-selection (Enhanced editor on; suppressed while typing in a field) |
 | **Ctrl+G** | Group / ungroup the current multi-selection (Enhanced editor on) |
 | **Middle-click** | Add/remove an object to the multi-selection (Enhanced editor on; nothing else selected) |
 | **Shift + Middle-click** | Edit group membership: add a loose object to the selected group, remove a current member, or seed a new group from a lone selection (Enhanced editor on) |
@@ -292,9 +291,10 @@ build a selection set (magenta highlight); middle-click again to remove one; cli
 clear. Clicking one member of a group selects the whole group. If you have no multi-selection, the
 copy/mirror/save tools fall back to the single selected item.
 
-**Select all objects (Ctrl+A)** — the **Select all objects** button (or **Ctrl+A**) marks every
-placed item on the map at once, so you can copy, mirror, save-to-stamp, or delete (F9) the whole
-track in one action. (Ctrl+A while a text field is focused still selects the text.)
+**Select all objects** — the **Select all objects** button marks every placed item on the map at
+once, so you can copy, mirror, save-to-stamp, delete (F9), or grab and move the whole track in one
+action. Existing groups are left as-is: move everything with each sub-group still intact, or press
+**Ctrl+G** to weld the lot into a single group.
 
 ### Duplicate / array / mirror / delete
 - **Duplicate item** — clone the selected item one grid step over, carrying its full MO config

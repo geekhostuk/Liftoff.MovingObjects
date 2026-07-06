@@ -26,11 +26,12 @@ If you're looking for the original project, the commit history of new-feature wo
 
 ### New in 1.2.9 (beta)
 
-- **Select all objects.** New **"Select all objects (Ctrl+A)"** button in the Placement utils window,
-  plus the **Ctrl+A** hotkey, marks every placed item on the map as one multi-selection — so the whole
-  track can be copied, mirrored, saved to a stamp, or deleted (F9) in a single action. It reuses the
-  existing selection machinery, so everything downstream works unchanged. (Ctrl+A while typing in a
-  text field still selects the text, not the objects.)
+- **Select all objects.** New **"Select all objects"** button in the Placement utils window marks
+  every placed item on the map as one flat multi-selection — so the whole track can be copied,
+  mirrored, saved to a stamp, deleted (F9), or grabbed and moved in a single action. Existing groups
+  are left untouched, so you choose what happens next: move the lot with each sub-group still intact,
+  or **Ctrl+G** to weld everything into one group. It reuses the existing selection machinery, so
+  everything downstream works unchanged.
 
 ### New in 1.2.8 (beta)
 

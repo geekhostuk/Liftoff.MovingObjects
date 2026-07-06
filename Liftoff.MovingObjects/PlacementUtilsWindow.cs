@@ -239,7 +239,7 @@ internal class PlacementUtilsWindow : MonoBehaviour
         _arrayButton = new Button(ArraySelected) { text = "Array item", focusable = false };
         container.Add(_arrayButton);
 
-        _selectAllButton = new Button(SelectAll) { text = "Select all objects (Ctrl+A)", focusable = false };
+        _selectAllButton = new Button(SelectAll) { text = "Select all objects", focusable = false };
         container.Add(_selectAllButton);
 
         _copySelectionButton = new Button(CopySelection) { text = "Copy selection", focusable = false };
@@ -683,14 +683,6 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
     private void HandleEnchantedKeys()
     {
-        // Ctrl+A selects every object. Suppressed while a text field is focused so Ctrl+A still means
-        // "select all text" there, not "select all objects" (mirrors the NudgeGizmo focus guard).
-        if (Input.GetKeyDown(KeyCode.A) && _root?.panel?.focusController?.focusedElement is not TextField)
-        {
-            SelectAll();
-            return;
-        }
-
         if (!Input.GetKeyDown(KeyCode.G))
             return;
         if (_selectedItem == null)
@@ -746,12 +738,16 @@ internal class PlacementUtilsWindow : MonoBehaviour
     }
 
 
-    // Select every placed item on the map as one multi-selection, so the whole track can be
-    // copied/mirrored/stamped/deleted in one go. This is the bulk counterpart to HandleSelection's
-    // one-at-a-time MMB toggle: it works from the same GroupSelectionInfo marker set, so it must run
-    // in the "nothing individually selected" mode. The game's single selection and any existing
-    // markers (and the auto-highlighted group from a selected item) are cleared first, then a marker
-    // is dropped on every item — deduped by blueprint so grouped members aren't marked twice.
+    // Select every placed item on the map as one flat multi-selection, so the whole track can be
+    // copied/mirrored/stamped/deleted — or grabbed and moved — in one go. Existing groups are ignored
+    // on purpose: each object is marked individually regardless of its mo_groupId, and no group ids
+    // are touched. That leaves the choice to the user — move the lot with each sub-group still intact,
+    // or Ctrl+G to weld everything into one group.
+    //
+    // Like HandleSelection's one-at-a-time MMB toggle, this works from the GroupSelectionInfo marker
+    // set, so it runs in the "nothing individually selected" mode: the game's single selection and any
+    // existing markers / auto-highlighted group are cleared first, then a marker is dropped on each
+    // item. (The blueprint set just guards against marking the same item twice.)
     private void SelectAll()
     {
         _fakeGroupContext?.Dispose();
