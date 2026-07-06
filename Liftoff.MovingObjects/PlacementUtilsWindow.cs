@@ -337,7 +337,16 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
         // Disk stamps have no live object, so their blueprint position/rotation ARE the truth.
         var items = blueprints.Select(PlacedItem.FromBlueprint).ToList();
-        ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition(), Shared.PlacementUtils.GridRound);
+
+        // A stamp is a reusable prefab: insert it as one cohesive group so it can be nudged into
+        // place (and ungrouped with Ctrl+G later) as a unit. Without this, whether the stamp came in
+        // grouped depended on whether the original selection happened to be grouped before saving —
+        // ungrouped selections stamped in loose, grouped ones stamped in as a group. Force one fresh
+        // group over the whole stamp so the result is consistent. (A lone-item stamp is left loose;
+        // GroupFlags ignores single-member groups anyway.)
+        var forceGroupId = items.Count > 1 ? Guid.NewGuid().ToString("D") : null;
+        ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition(),
+            Shared.PlacementUtils.GridRound, forceGroupId);
         Shared.Editor.RequestRefreshGui();
     }
 

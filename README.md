@@ -24,6 +24,21 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.2.5 (beta)
+
+Two more paste/stamp fixes from in-game playtest:
+
+- **Pasted / stamped / duplicated objects stay where you put them after a save + reload.** Spawned
+  items set their live position on screen but never wrote it into the blueprint the game serialises a
+  track from, so they saved at `(0,0,0)` and reappeared stacked on the **origin** next time the map
+  was loaded (the "phantom copies from yesterday's session"). Each spawned item now writes its final
+  position/rotation into its own blueprint, so a save persists where things actually are. Note: tracks
+  already saved with the old bug keep their stray origin copies — delete those once; new saves are fine.
+- **Inserting a stamp always gives you one group.** Whether a stamp came in grouped used to depend on
+  whether the original selection happened to be grouped before you saved it — ungrouped selections
+  stamped in loose, grouped ones stamped in as a group. A stamp is now always inserted as a single
+  cohesive group you can nudge into place (and ungroup with **G** if you want to edit its pieces).
+
 ### New in 1.2.4 (beta)
 
 Follow-ups to the 1.2.3 copy/paste fix, from in-game playtest:
@@ -191,7 +206,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.2.4.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.2.5.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`

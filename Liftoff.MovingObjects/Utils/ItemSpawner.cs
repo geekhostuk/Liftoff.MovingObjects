@@ -64,10 +64,12 @@ internal static class ItemSpawner
     }
 
     // Duplicate an existing item's blueprint at an offset, carrying its MO configuration but a
-    // fresh group id (so a duplicate never silently merges into the source's group).
+    // fresh group id (so a duplicate never silently merges into the source's group). The source is
+    // deep-cloned before spawning so ApplyMoConfig's write-back (which persists the new item's
+    // transform into its blueprint) can never reach back and mutate the live source's blueprint.
     public static GameObject Duplicate(TrackBlueprint source, Vector3 offset)
     {
-        var item = SpawnFromBlueprint(source);
+        var item = SpawnFromBlueprint(CloneUtils.DeepClone(source));
         if (item == null)
             return null;
 
@@ -81,6 +83,14 @@ internal static class ItemSpawner
     // group id) never ride along on spawn — they have to be written here or the paste silently drops
     // every object's animation, trigger, and grouping. Deep-cloned so repeated spawns from one source
     // don't share config objects. groupId is passed in (remapped to a fresh group, or null).
+    //
+    // This also persists the item's LIVE transform back into its blueprint. Callers set the live
+    // transform (position/rotation) for the on-screen result, but the game serialises a track from
+    // each item's blueprint.position/rotation, NOT from the live transform (the editor's own place/
+    // drag code is what normally writes those fields; a mod-spawned item bypasses it). Left unsynced,
+    // a freshly created item keeps its default (0,0,0) blueprint, so every pasted/stamped/duplicated
+    // item SAVES at the origin and reappears stacked there when the track is reloaded. Writing the
+    // transform here is the same hand-sync SaveStamp and the animation editor already do.
     private static void ApplyMoConfig(Component item, TrackBlueprint source, string groupId)
     {
         var blueprint = ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(item);
@@ -91,6 +101,9 @@ internal static class ItemSpawner
         blueprint.mo_animationSteps = CloneUtils.DeepClone(source.mo_animationSteps);
         blueprint.mo_triggerOptions = CloneUtils.DeepClone(source.mo_triggerOptions);
         blueprint.mo_groupId = groupId;
+
+        blueprint.position = new SerializableVector3(item.transform.position);
+        blueprint.rotation = new SerializableVector3(item.transform.rotation.eulerAngles);
     }
 
     // Array (8f): stamp N duplicates, each offset a further step from the source. Same primitive
@@ -108,8 +121,13 @@ internal static class ItemSpawner
     // they're stale and every item collapsed onto the anchor with default orientation. Grouped items
     // keep their grouping but under fresh group ids so a pasted group never silently merges with the
     // source group.
+    //
+    // forceGroupId (optional): when set, every pasted item is put into that one group instead of
+    // remapping each source group. Stamp insertion uses this so a stamp always arrives as a single
+    // cohesive group regardless of whether the original selection happened to be grouped — otherwise
+    // an ungrouped selection stamped in loose while a grouped one stamped in as a group (inconsistent).
     public static void Paste(List<PlacedItem> sources, Vector3 sourceCentroid, Vector3 targetAnchor,
-        float gridStep)
+        float gridStep, string forceGroupId = null)
     {
         var groupMap = new Dictionary<string, string>();
 
@@ -130,7 +148,8 @@ internal static class ItemSpawner
             if (source.scale.HasValue)
                 item.transform.localScale = source.scale.Value;
 
-            ApplyMoConfig(item, source.blueprint, RemapGroup(source.blueprint.mo_groupId, groupMap));
+            var groupId = forceGroupId ?? RemapGroup(source.blueprint.mo_groupId, groupMap);
+            ApplyMoConfig(item, source.blueprint, groupId);
         }
     }
 
