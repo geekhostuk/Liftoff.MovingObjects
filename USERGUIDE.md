@@ -4,11 +4,11 @@ This guide covers every feature of the mod and how to use it, for **track author
 want to *fly* maps that use moving objects, you just need the mod installed (see
 [Installation](#installation)) — everything below is for building.
 
-> **Beta note (v1.2.7).** Every feature compiles against the current game and is wired end-to-end,
+> **Beta note (v1.2.9).** Every feature compiles against the current game and is wired end-to-end,
 > and the core animation/physics/trigger paths have been playtested in-game. A few of the newest
-> runtime paths and item-spawn features (Duplicate/Array/Copy-Paste/Mirror/Stamps, sound-on-trigger,
-> hazard-on-contact, experimental spectator sync) are guarded so a wrong assumption fails
-> gracefully, but confirm them in-game where noted. Please report anything that misbehaves.
+> runtime paths and item-spawn features (Select-all, Duplicate/Array/Copy-Paste/Mirror/Stamps,
+> sound-on-trigger, hazard-on-contact, experimental spectator sync) are guarded so a wrong assumption
+> fails gracefully, but confirm them in-game where noted. Please report anything that misbehaves.
 
 ---
 
@@ -109,6 +109,7 @@ A floating panel for map-wide tools (grid, selection, stats, spawning). Toggle i
 | **F4** | Toggle wireframe view |
 | **F5** | **Duplicate selection in place** — a copy lands exactly on the originals as one fresh group; grab and drag it off |
 | **F9** | **Delete selection** — removes the whole selection through the editor's own removal, so it's gone from the saved track too |
+| **Ctrl+A** | **Select all objects** — mark every placed item on the map as one multi-selection (Enhanced editor on; suppressed while typing in a field) |
 | **Ctrl+G** | Group / ungroup the current multi-selection (Enhanced editor on) |
 | **Middle-click** | Add/remove an object to the multi-selection (Enhanced editor on; nothing else selected) |
 | **Shift + Middle-click** | Edit group membership: add a loose object to the selected group, remove a current member, or seed a new group from a lone selection (Enhanced editor on) |
@@ -290,6 +291,10 @@ With **Enhanced editor** on and nothing selected in the normal editor, **middle-
 build a selection set (magenta highlight); middle-click again to remove one; click empty space to
 clear. Clicking one member of a group selects the whole group. If you have no multi-selection, the
 copy/mirror/save tools fall back to the single selected item.
+
+**Select all objects (Ctrl+A)** — the **Select all objects** button (or **Ctrl+A**) marks every
+placed item on the map at once, so you can copy, mirror, save-to-stamp, or delete (F9) the whole
+track in one action. (Ctrl+A while a text field is focused still selects the text.)
 
 ### Duplicate / array / mirror / delete
 - **Duplicate item** — clone the selected item one grid step over, carrying its full MO config

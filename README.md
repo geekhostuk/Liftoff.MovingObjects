@@ -24,6 +24,14 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.2.9 (beta)
+
+- **Select all objects.** New **"Select all objects (Ctrl+A)"** button in the Placement utils window,
+  plus the **Ctrl+A** hotkey, marks every placed item on the map as one multi-selection — so the whole
+  track can be copied, mirrored, saved to a stamp, or deleted (F9) in a single action. It reuses the
+  existing selection machinery, so everything downstream works unchanged. (Ctrl+A while typing in a
+  text field still selects the text, not the objects.)
+
 ### New in 1.2.8 (beta)
 
 Group fixes from in-game playtest:
@@ -260,7 +268,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.2.8.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.2.9.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`

@@ -43,6 +43,7 @@ internal class PlacementUtilsWindow : MonoBehaviour
     private TextField _arrayCountField;
     private Button _arrayButton;
     private int _arrayCount = 3;
+    private Button _selectAllButton;
     private Button _copySelectionButton;
     private Button _pasteSelectionButton;
     private Button _duplicateSelectionButton;
@@ -237,6 +238,9 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
         _arrayButton = new Button(ArraySelected) { text = "Array item", focusable = false };
         container.Add(_arrayButton);
+
+        _selectAllButton = new Button(SelectAll) { text = "Select all objects (Ctrl+A)", focusable = false };
+        container.Add(_selectAllButton);
 
         _copySelectionButton = new Button(CopySelection) { text = "Copy selection", focusable = false };
         container.Add(_copySelectionButton);
@@ -679,6 +683,14 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
     private void HandleEnchantedKeys()
     {
+        // Ctrl+A selects every object. Suppressed while a text field is focused so Ctrl+A still means
+        // "select all text" there, not "select all objects" (mirrors the NudgeGizmo focus guard).
+        if (Input.GetKeyDown(KeyCode.A) && _root?.panel?.focusController?.focusedElement is not TextField)
+        {
+            SelectAll();
+            return;
+        }
+
         if (!Input.GetKeyDown(KeyCode.G))
             return;
         if (_selectedItem == null)
@@ -733,6 +745,32 @@ internal class PlacementUtilsWindow : MonoBehaviour
         return groupHighlightObj;
     }
 
+
+    // Select every placed item on the map as one multi-selection, so the whole track can be
+    // copied/mirrored/stamped/deleted in one go. This is the bulk counterpart to HandleSelection's
+    // one-at-a-time MMB toggle: it works from the same GroupSelectionInfo marker set, so it must run
+    // in the "nothing individually selected" mode. The game's single selection and any existing
+    // markers (and the auto-highlighted group from a selected item) are cleared first, then a marker
+    // is dropped on every item — deduped by blueprint so grouped members aren't marked twice.
+    private void SelectAll()
+    {
+        _fakeGroupContext?.Dispose();
+        _fakeGroupContext = null;
+        _selectedItem = null;
+        DeselectAll();
+
+        var seen = new HashSet<TrackBlueprint>();
+        foreach (var flag in EditorUtils.FindAllFlags())
+        {
+            var blueprint = ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(flag);
+            if (blueprint == null || !seen.Add(blueprint))
+                continue;
+
+            var highlightObj = Highlight(flag.gameObject);
+            if (highlightObj != null)
+                highlightObj.AddComponent<GroupSelectionInfo>().trackBlueprint = blueprint;
+        }
+    }
 
     private void HandleSelection()
     {
