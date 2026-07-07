@@ -461,25 +461,65 @@ public sealed class Plugin : BaseUnityPlugin
         }
     }
 
-    // One motion driver per group: the member whose blueprint carries the MO config is the root that
-    // GroupFlags parents the others under and that InjectPlayers gives the single player. When several
-    // members carry config — an old track where a copy propagated the animation onto every block
-    // (honk's fan) — we still elect exactly one, deterministically (first in the stable flag order, so
-    // the same member wins on every reset and the idempotent "already grouped?" check stays valid), so
-    // the group moves as one body instead of freezing.
+    // One motion driver per group: the elected member is the root that GroupFlags parents the others
+    // under and that InjectPlayers gives the single player. The driver MUST be a member that actually
+    // carries motion, i.e. one InjectPlayers will really give a player to (physics / spinner / orbit /
+    // keyframe steps). Electing merely "the first member with non-null options" was the bug behind
+    // honk's frozen chamber: a group built from copies (copy/paste/stamp deep-clone the whole blueprint,
+    // MO config included) can carry a non-null but motionless mo_animationOptions on several pieces. If
+    // such a motionless piece won, the root failed InjectPlayers' gate and got no player, while the real
+    // spinner/step member was skipped as a non-root member — so the group stood still in flight though
+    // every piece previewed fine (the editor drives the selected member directly). Prefer a motion-
+    // carrying member; fall back to any non-null-options member so motionless groups behave as before.
+    // First-in-stable-order within each tier keeps the choice deterministic across resets, so the same
+    // member wins every reset and GroupFlags' idempotent "already grouped?" check stays valid.
+    //
+    // NOTE: this is still ONE driver per group. Two members with different motions (e.g. a spinner on
+    // one piece and a 90-degree step door on another) cannot both play in flight — only the elected
+    // root moves. Independent motions need to live in separate groups (or stay ungrouped).
     private static Dictionary<string, GameObject> ComputeGroupRoots(IEnumerable<Component> flags)
     {
         var roots = new Dictionary<string, GameObject>();
+        var rootHasMotion = new Dictionary<string, bool>();
+
         foreach (var flag in flags)
         {
             var blueprint = ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(flag);
             if (string.IsNullOrEmpty(blueprint?.mo_groupId) || blueprint.mo_animationOptions == null)
                 continue;
-            if (!roots.ContainsKey(blueprint.mo_groupId))
-                roots[blueprint.mo_groupId] = flag.gameObject;
+
+            var groupId = blueprint.mo_groupId;
+            var hasMotion = HasMotion(blueprint);
+
+            // First member seeds a provisional root; a later motion-carrying member upgrades a
+            // motionless provisional root (but never displaces an already motion-carrying one).
+            if (!roots.ContainsKey(groupId))
+            {
+                roots[groupId] = flag.gameObject;
+                rootHasMotion[groupId] = hasMotion;
+            }
+            else if (hasMotion && !rootHasMotion[groupId])
+            {
+                roots[groupId] = flag.gameObject;
+                rootHasMotion[groupId] = true;
+            }
         }
 
         return roots;
+    }
+
+    // A group member drives motion in flight only if InjectPlayers would give it a player: a physics
+    // body, or an animation (continuous spinner / orbit, or a keyframe step list). Mirrors the gate in
+    // InjectPlayers exactly so the elected root is guaranteed to receive a player.
+    private static bool HasMotion(TrackBlueprint blueprint)
+    {
+        var options = blueprint.mo_animationOptions;
+        if (options == null)
+            return false;
+        return options.simulatePhysics
+               || options.spinnerEnabled
+               || options.orbitEnabled
+               || blueprint.mo_animationSteps?.Count > 0;
     }
 
     private static void GroupFlags(IEnumerable<Component> flags, Dictionary<string, GameObject> rootObjects)

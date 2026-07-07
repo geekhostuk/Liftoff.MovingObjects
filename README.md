@@ -24,6 +24,22 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.2.11 (beta)
+
+- **Grouped chambers animate in flight again — even when only some pieces carry the motion.** A whole
+  grouped chamber that spun (or ran a 90° step rotation) perfectly in the editor could stand frozen in
+  flight (thanks Honk for the report). A flight group runs **one motion driver** — the elected "root"
+  member gets the player and the rest ride along — but election picked the *first member with any MO
+  config*, not the one actually carrying motion. Build a chamber by copying pieces around and several
+  end up with a non-null-but-motionless config, so a motionless piece could win: it got no player (it
+  moves nothing), and your real spinner/step piece was skipped as a non-root member, so the group never
+  moved — while the editor still previewed fine because it drives whichever piece you have *selected*.
+  Election now prefers a piece that actually carries motion, so the group's driver always animates.
+- **⚠️ Note for grouped motion:** a flight group still moves as **one body under one driver**. If a
+  group contains *two different* motions — e.g. a spinner on one piece **and** a 90°-step door on
+  another — only the elected root plays; the second motion is lost. Put independent motions in
+  **separate groups** (or leave them ungrouped).
+
 ### New in 1.2.10 (beta)
 
 - **"Select all" now really catches everything.** In 1.2.9 it only picked up blocks the mouse cursor
@@ -280,7 +296,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.2.10.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.2.11.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`

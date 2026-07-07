@@ -4,7 +4,7 @@ This guide covers every feature of the mod and how to use it, for **track author
 want to *fly* maps that use moving objects, you just need the mod installed (see
 [Installation](#installation)) — everything below is for building.
 
-> **Beta note (v1.2.10).** Every feature compiles against the current game and is wired end-to-end,
+> **Beta note (v1.2.11).** Every feature compiles against the current game and is wired end-to-end,
 > and the core animation/physics/trigger paths have been playtested in-game. A few of the newest
 > runtime paths and item-spawn features (Select-all, Duplicate/Array/Copy-Paste/Mirror/Stamps,
 > sound-on-trigger, hazard-on-contact, experimental spectator sync) are guarded so a wrong assumption
