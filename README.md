@@ -35,6 +35,18 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.3.0
+
+First **stable** release of the moving-objects feature line. It promotes the work that shipped
+across the 1.2.x betas (see the per-version notes below) out of beta — everything is now confirmed
+working end-to-end **in-game (flight) and in the track builder**. No new features over 1.2.11; this
+is the tested 1.2.x line consolidated into a stable version.
+
+- **Leaderboards on modded tracks now count.** Lugus (Liftoff's developer) has enabled leaderboard
+  times for modded tracks through their backend — see
+  [Leaderboards on modded tracks](#leaderboards-on-modded-tracks). This is a Liftoff-side change,
+  not part of the mod.
+
 ### New in 1.2.11
 
 - **Fully tested** — verified end-to-end both in-game (flight) and in the track builder. This
@@ -308,7 +320,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.2.11.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.3.0.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`
