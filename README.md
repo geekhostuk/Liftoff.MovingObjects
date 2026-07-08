@@ -35,6 +35,14 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.3.4
+
+- **Deleting with F9 no longer leaves a "lonely" gizmo behind.** After F9-deleting a selected item or
+  group, the game still had it selected in gizmo-manipulation mode, so the transform gizmo was left
+  floating with nothing attached (thanks Honk). Delete now drops the editor back to Place mode
+  afterwards — the same thing the editor's own "return to place mode" button does — so the game
+  deselects and clears the gizmo. Selecting another item re-enters gizmo mode as normal.
+
 ### New in 1.3.3
 
 Follow-up fix to the 1.3.2 hold-Alt nudge.
@@ -374,7 +382,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.3.3.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.3.4.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`

@@ -4,14 +4,15 @@ This guide covers every feature of the mod and how to use it, for **track author
 want to *fly* maps that use moving objects, you just need the mod installed (see
 [Installation](#installation)) — everything below is for building.
 
-> **Status (v1.3.3).** This is the stable 1.3.x line: the core animation / physics / trigger paths and
+> **Status (v1.3.4).** This is the stable 1.3.x line: the core animation / physics / trigger paths and
 > the editor/item-spawn features (Select-all, Duplicate/Array/Copy-Paste/Mirror/Stamps, grouping,
 > sound-on-trigger, hazard-on-contact) are confirmed working in-game. The most recent editor fixes
-> (v1.3.1–v1.3.3 — group highlighting, rigid group scaling, one-row step buttons, faster scrolling, the
-> hold-**Alt** gizmo nudge and its in-field arrow fix, and the ghost-highlight cleanup) are being
-> confirmed in playtest; the hold-Alt camera freeze in particular depends on the current Liftoff build,
-> so it fails gracefully if anything changes. The experimental spectator sync is off by default and
-> version-specific. Please report anything that misbehaves.
+> (v1.3.1–v1.3.4 — group highlighting, rigid group scaling, one-row step buttons, faster scrolling, the
+> hold-**Alt** gizmo nudge and its in-field arrow fix, the ghost-highlight cleanup, and clearing the
+> gizmo after an F9 delete) are being confirmed in playtest; the hold-Alt camera freeze and the F9
+> gizmo-clear depend on the current Liftoff build, so they fail gracefully if anything changes. The
+> experimental spectator sync is off by default and version-specific. Please report anything that
+> misbehaves.
 
 ---
 

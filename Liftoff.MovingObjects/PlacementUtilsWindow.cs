@@ -396,6 +396,10 @@ internal class PlacementUtilsWindow : MonoBehaviour
         foreach (var flag in flags)
             ItemSpawner.RemoveItem(flag);
 
+        // The game still had the deleted item selected in gizmo mode, which would leave its transform
+        // gizmo floating with nothing attached — drop back to place mode so the game clears it.
+        ItemSpawner.ClearGizmoSelection();
+
         Shared.Editor.RequestRefreshGui();
     }
 
