@@ -18,14 +18,28 @@ If you want to **build** maps with moving objects, see the **[User Guide](USERGU
 
 - **[JMT FPV](https://jmtfpv.com)** runs a multiplayer room called **JMT-MOD** that races on tracks built around moving objects from this mod. JMT FPV publishes their own setup walkthrough at <https://jmtfpv.com/install> — follow that for the JMT-specific server/lobby steps; the *mod-side* installation below is the same regardless of which community you're flying with.
 
+### Leaderboards on modded tracks
+
+Historically, runs flown with this mod installed were withheld from Liftoff's leaderboards — the
+injected mod trips the game's anti-cheat, so times on tracks that use moving objects didn't count.
+That gate is on **Liftoff's side**, not something this mod controls.
+
+**Lugus (Liftoff's developer) has now enabled leaderboard times for modded tracks** through their
+backend, so runs on maps that use this mod can post times again — confirmed working in-game (thanks
+to Jan at Lugus for the change, and to Honk for verifying it). Nothing in this mod changed as a
+result; it's a server-side update on Liftoff's end.
+
 ## About this fork
 
 This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects) of [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects). **All credit for the mod itself goes to [ps-hek](https://github.com/ps-hek)** — they designed it, built it, authored the patcher and editor windows, and shipped the maps community has been racing on. This fork exists only to keep the mod working: the upstream release was last published in early 2024 and stopped working against current Liftoff builds (Unity 2022.3, BepInEx 5.4.23). The prebuilt 1.0.14 plugin would load but objects on modded maps would no longer animate. v1.1.0 in this fork restores the runtime against the current game.
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
-### New in 1.2.11 (beta)
+### New in 1.2.11
 
+- **Fully tested** — verified end-to-end both in-game (flight) and in the track builder. This
+  release, and the paste/mirror/grouping/spinner work that landed across the 1.2.x betas, are
+  confirmed working in a real session.
 - **Grouped chambers animate in flight again — even when only some pieces carry the motion.** A whole
   grouped chamber that spun (or ran a 90° step rotation) perfectly in the editor could stand frozen in
   flight (thanks Honk for the report). A flight group runs **one motion driver** — the elected "root"
@@ -157,9 +171,8 @@ Follow-ups to the 1.2.3 copy/paste fix, from in-game playtest:
   every time the placement window opened — a fresh hitch on large maps, and a whole-scene poly count
   that looked wrong for a selection. Stats are now computed **only** when you click *Refresh stats*.
 
-> Note: these changes are compile-verified and follow the editor's existing live-transform idiom,
-> but should be confirmed with an in-game playtest — paste/mirror a multi-item selection and check
-> the relative spacing and rotations survive.
+> Note: since confirmed in-game — paste/mirror of a multi-item selection reproduces the relative
+> spacing and rotations (see the 1.2.11 "Fully tested" note).
 
 ### New in 1.2.2 (beta)
 
@@ -179,9 +192,9 @@ Follow-ups to the 1.2.3 copy/paste fix, from in-game playtest:
   behind a config flag, from a single non-threaded log subscription (instead of the original's
   cross-thread call and four Harmony log-sink patches).
 
-> Note: as with 1.2.0, these changes compile and are wired end-to-end but should be confirmed with
-> an in-game playtest. The spinner-in-flight fix is compile-verified only, and the experimental
-> spectator sync depends on a log line that varies by Liftoff version — treat it as beta.
+> Note: the spinner-in-flight fix is since confirmed in-game (see the 1.2.11 "Fully tested" note).
+> The experimental spectator sync remains best-effort — it depends on a log line that varies by
+> Liftoff version, so treat it as beta.
 
 ### New in 1.2.1
 
@@ -214,9 +227,8 @@ A large feature release implementing the remaining `ideas.md` backlog. Grouped b
   copy/paste, mirror, and save-to-file build on the same primitive.
 - **Workshop preview override re-enabled** — sharing a track again honours a local `preview.png`.
 
-> Note: the continuous/physics/trigger runtime behaviours and the item-spawn features compile
-> against the current game and are wired end-to-end, but should be confirmed with an in-game
-> playtest.
+> Note: the continuous/physics/trigger runtime behaviours and the item-spawn features are since
+> confirmed in-game (see the 1.2.11 "Fully tested" note).
 
 ### New in 1.1.2
 
