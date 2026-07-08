@@ -586,117 +586,6 @@ internal class PlacementUtilsWindow : MonoBehaviour
         field.SetValueWithoutNotify(GuiUtils.FloatToString(value));
     }
 
-    // Freeze/thaw the editor fly-camera while the nudge modifier (Alt) is held, so the arrow keys
-    // move the gizmo without also flying the avatar. We can't swallow the arrow input (the game reads
-    // it through Unity's shared movement axes), so we hold the avatar body still: disable its mover
-    // (LiftoffFirstPersonController) and the editor camera wrapper (which would otherwise re-enable
-    // physics), zero and freeze its rigidbody, and restore all of that on release. Mouse-look pauses
-    // while held, which is harmless during a nudge. Everything is captured on the Alt-press edge and
-    // null-guarded, so a torn-down avatar just leaves the freeze inert.
-    private bool _nudgeFrozen;
-    private Behaviour _frozenMover;
-    private Behaviour _frozenCameraWrapper;
-    private Rigidbody _frozenRb;
-    private bool _frozenRbPrevKinematic;
-
-    private void UpdateNudgeCameraFreeze(bool freeze)
-    {
-        if (freeze == _nudgeFrozen)
-            return;
-
-        if (freeze)
-        {
-            var mover = FindObjectOfType<LiftoffFirstPersonController>();
-            if (mover == null)
-                return;
-
-            _frozenMover = mover;
-            _frozenCameraWrapper = FindObjectOfType<EditorCameraFirstPersonController>();
-            _frozenRb = mover.GetComponent<Rigidbody>();
-            if (_frozenRb != null)
-            {
-                _frozenRbPrevKinematic = _frozenRb.isKinematic;
-                _frozenRb.velocity = Vector3.zero;
-                _frozenRb.angularVelocity = Vector3.zero;
-                _frozenRb.isKinematic = true;
-            }
-            if (_frozenCameraWrapper != null)
-                _frozenCameraWrapper.enabled = false;
-            _frozenMover.enabled = false;
-            _nudgeFrozen = true;
-        }
-        else
-        {
-            if (_frozenMover != null)
-                _frozenMover.enabled = true;
-            if (_frozenCameraWrapper != null)
-                _frozenCameraWrapper.enabled = true;
-            if (_frozenRb != null)
-                _frozenRb.isKinematic = _frozenRbPrevKinematic;
-            _frozenMover = null;
-            _frozenCameraWrapper = null;
-            _frozenRb = null;
-            _nudgeFrozen = false;
-        }
-    }
-
-    private void OnDisable()
-    {
-        // Don't leave the avatar frozen if this window is torn down mid-nudge.
-        UpdateNudgeCameraFreeze(false);
-    }
-
-    // Is the user editing any of the mod's text fields right now? The mod runs two independent UI
-    // Toolkit panels (this window and the animation editor), each with its own focusController, so we
-    // scan every live panel. We walk UP from the focused element because focus can land on a
-    // TextField's inner input child rather than the TextField itself — an `is TextField` check on the
-    // focused element alone would miss that and treat typing as not-editing.
-    private static bool IsEditingText()
-    {
-        foreach (var doc in FindObjectsOfType<UIDocument>())
-        {
-            var element = doc.rootVisualElement?.panel?.focusController?.focusedElement as VisualElement;
-            while (element != null)
-            {
-                if (element is TextField)
-                    return true;
-                element = element.parent;
-            }
-        }
-
-        return false;
-    }
-
-    // Arrow-key nudge of the gizmo by the grid step (Shift = vertical). Only reached while the Alt
-    // nudge modifier is held AND no text field is focused — Update gates both this and the camera
-    // freeze on !IsEditingText(), so while you're typing the arrows stay entirely with the field
-    // (matching vanilla Liftoff: arrows edit text and don't move the avatar) and the mod touches
-    // neither the gizmo nor the fly-camera.
-    private void NudgeGizmo()
-    {
-        var step = Shared.PlacementUtils.GridRound > 0 ? Shared.PlacementUtils.GridRound : 1f;
-        var shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-        var delta = Vector3.zero;
-
-        if (Input.GetKeyDown(KeyCode.LeftArrow))
-            delta.x -= step;
-        if (Input.GetKeyDown(KeyCode.RightArrow))
-            delta.x += step;
-        if (Input.GetKeyDown(KeyCode.UpArrow))
-            delta += shift ? Vector3.up * step : Vector3.forward * step;
-        if (Input.GetKeyDown(KeyCode.DownArrow))
-            delta += shift ? Vector3.down * step : Vector3.back * step;
-
-        if (delta == Vector3.zero)
-            return;
-
-        var gizmo = GameObject.Find("TrackEditorGizmo");
-        if (gizmo == null)
-            return;
-
-        gizmo.transform.position += delta;
-    }
-
     private void Update()
     {
         if (Input.GetKeyDown(KeyCode.F1))
@@ -713,21 +602,6 @@ internal class PlacementUtilsWindow : MonoBehaviour
             DeleteSelection();
 
         RefreshTransformFields();
-
-        // Arrow-key gizmo nudge is a "hold Alt" mode. The editor fly-camera also moves on the arrow
-        // keys (Unity aliases them with WASD through its shared movement axes, which the mod can't
-        // intercept), so pressing arrows used to move the gizmo AND the avatar at once. Now the nudge
-        // only fires while Alt is held, and while Alt is held we freeze the fly-camera so the arrows
-        // move the gizmo only. Plain arrows keep flying the avatar for creators who navigate that way.
-        //
-        // Crucially we bail entirely while a text field is focused: the freeze disables the avatar's
-        // own controller, which is what vanilla Liftoff relies on to keep arrows in the field (not
-        // moving the avatar) while typing. Freezing it there broke that — arrows leaked to the avatar
-        // and kicked focus out of the field (honk). Gating on !IsEditingText() leaves typing untouched.
-        var nudgeHeld = (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)) && !IsEditingText();
-        UpdateNudgeCameraFreeze(nudgeHeld);
-        if (nudgeHeld)
-            NudgeGizmo();
 
         if (!Shared.PlacementUtils.EnchantedEditor)
             return;

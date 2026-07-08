@@ -4,15 +4,15 @@ This guide covers every feature of the mod and how to use it, for **track author
 want to *fly* maps that use moving objects, you just need the mod installed (see
 [Installation](#installation)) — everything below is for building.
 
-> **Status (v1.3.5).** This is the stable 1.3.x line: the core animation / physics / trigger paths and
+> **Status (v1.3.6).** This is the stable 1.3.x line: the core animation / physics / trigger paths and
 > the editor/item-spawn features (Select-all, Duplicate/Array/Copy-Paste/Mirror/Stamps, grouping,
 > sound-on-trigger, hazard-on-contact) are confirmed working in-game. The most recent editor fixes
-> (v1.3.1–v1.3.5 — group highlighting, rigid group scaling, one-row step buttons, faster scrolling, the
-> hold-**Alt** gizmo nudge, keeping arrow keys inside focused text fields, the ghost-highlight cleanup,
-> and clearing the gizmo after an F9 delete) are being confirmed in playtest; the hold-Alt camera
-> freeze and the F9 gizmo-clear depend on the current Liftoff build, so they fail gracefully if
-> anything changes. The experimental spectator sync is off by default and version-specific. Please
-> report anything that misbehaves.
+> (v1.3.1–v1.3.6 — group highlighting, rigid group scaling, one-row step buttons, faster scrolling,
+> keeping arrow keys inside focused text fields, the ghost-highlight cleanup, and clearing the gizmo
+> after an F9 delete) are being confirmed in playtest; the F9 gizmo-clear depends on the current
+> Liftoff build, so it fails gracefully if anything changes. As of v1.3.6 the hold-Alt arrow-key gizmo
+> nudge has been removed — arrow keys just fly the editor camera now. The experimental spectator sync
+> is off by default and version-specific. Please report anything that misbehaves.
 
 ---
 
@@ -116,7 +116,6 @@ A floating panel for map-wide tools (grid, selection, stats, spawning). Toggle i
 | **Ctrl+G** | Group / ungroup the current multi-selection (Enhanced editor on) |
 | **Middle-click** | Add/remove an object to the multi-selection (Enhanced editor on; nothing else selected) |
 | **Shift + Middle-click** | Edit group membership: add a loose object to the selected group, remove a current member, or seed a new group from a lone selection (Enhanced editor on) |
-| **Alt + Arrow keys** | Nudge the gizmo by the Alignment grid step (**Shift** = vertical). Hold **Alt** to nudge — it freezes the fly-camera so the arrows move the gizmo, not you. Plain arrows still fly the avatar. Suppressed while typing in a field |
 
 F5 and F9 also have toolbar buttons in the Placement utils window; a pink (grouped) selection
 counts as **one** selection, so both hotkeys act on the whole group.
@@ -282,14 +281,11 @@ All of these live in the **Placement utils** window (F2).
 
 ### Grid & precision
 - **Alignment grid** (Grid field) + **Align** button (or **F1**) — snap the gizmo to a grid of
-  this size. **Default 0.5.** Also drives arrow-key nudge, Duplicate/Array spacing, and paste
-  snapping.
+  this size. **Default 0.5.** Also drives Duplicate/Array spacing and paste snapping.
 - **Placement grid** (drag grid) — grid size applied while dragging items. **Default 0.0 = off.**
 - **Pos X/Y/Z**, **Rot X/Y/Z** — type exact transform values for the selected gizmo; they also
-  track the gizmo live.
-- **Alt + Arrow keys** — nudge the gizmo by the Alignment grid step (**Shift** = up/down). You must
-  hold **Alt**: while it's held the editor fly-camera is frozen so the arrows only move the gizmo, not
-  your avatar. Release Alt and the arrows fly the camera as normal.
+  track the gizmo live. Use these to nudge an object precisely (the old Alt + Arrow nudge was
+  removed in v1.3.6 — arrow keys now just fly the editor camera).
 
 ### Multi-selection (used by all the copy/mirror/stamp tools)
 With **Enhanced editor** on and nothing selected in the normal editor, **middle-click** objects to

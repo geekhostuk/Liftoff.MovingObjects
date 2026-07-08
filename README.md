@@ -35,6 +35,14 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.3.6
+
+- **Alt + Arrow gizmo nudging removed.** The hold-Alt nudge (added in 1.3.2) has been taken out at
+  Honk's request. It proved fiddly — it had to freeze the fly-camera while Alt was held, which paused
+  mouse-look and repeatedly interfered with typing in text fields. The arrow keys now do exactly what
+  vanilla Liftoff does: fly the editor camera, nothing more. Nudge objects with the numeric transform
+  fields instead. Arrow keys still stay inside a focused text field (the 1.3.5 fix is unaffected).
+
 ### New in 1.3.5
 
 - **Arrow keys stay inside a text field while typing (the real fix).** Editing a mod text field and
@@ -304,8 +312,8 @@ A large feature release implementing the remaining `ideas.md` backlog. Grouped b
   boost / brake gates (in-place speed rescale), wind / force volumes, speed-based routing,
   sound-on-trigger (drives the native sound item), and hazard-on-contact (kills the drone).
 - **Editor authoring** — copy/paste of MO config between objects, editable / reorderable
-  animation steps, an animation path preview, a timeline scrubber, numeric transform entry +
-  arrow-key nudge, trigger/portal validation (lint), on-demand object/triangle stats, and
+  animation steps, an animation path preview, a timeline scrubber, numeric transform entry,
+  trigger/portal validation (lint), on-demand object/triangle stats, and
   in-editor trigger-link gizmos.
 - **Item spawning** — the mod can now instantiate track items from blueprints (the long-missing
   primitive), enabling single-item **Duplicate** and **Array** placement. Multi-object
@@ -393,7 +401,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.3.5.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.3.6.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`
