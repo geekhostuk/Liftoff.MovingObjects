@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Reflection;
 using BepInEx.Logging;
 using Liftoff.MovingObjects.Player;
 using UnityEngine;
@@ -43,6 +44,33 @@ internal class TriggerBehavior : MonoBehaviour
     public bool seamlessTeleport;
     public float exitSpeed;
 
+    public bool triggerOnce;
+    public float triggerCooldown;
+    public bool sequentialTargets;
+
+    public bool boostEnabled;
+    public float speedMultiplier;
+    public float targetSpeed;
+
+    public bool windEnabled;
+    public SerializableVector3 forceVector;
+    public int forceMode;
+    public bool forceLocalSpace;
+
+    public bool routeBySpeed;
+    public float routeSpeedThreshold;
+
+    public bool playSoundOnTrigger;
+    private TrackItemPlaySoundTrigger[] _soundTriggers;
+
+    // PlaySoundFile is non-public on the native item, so it's driven by reflection.
+    private static readonly MethodInfo PlaySoundMethod = typeof(TrackItemPlaySoundTrigger)
+        .GetMethod("PlaySoundFile", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
+    private bool _hasFiredOnce;
+    private float _cooldownUntil;
+    private int _sequentialIndex;
+
     private void Start()
     {
         _droneLayer = LayerMask.NameToLayer("Drone");
@@ -55,6 +83,12 @@ internal class TriggerBehavior : MonoBehaviour
         _animationPlayers = targetTriggers.Select(t => t.GetComponent<AnimationPlayer>()).Where(p => p != null)
             .ToArray();
         _physicsPlayers = targetTriggers.Select(t => t.GetComponent<PhysicsPlayer>()).Where(p => p != null).ToArray();
+
+        // Sound-on-trigger reuses the same name matching: give a native TrackItemPlaySoundTrigger
+        // a trigger Name equal to this entrance's Target and its configured sound plays on pass.
+        if (playSoundOnTrigger)
+            _soundTriggers = targetTriggers.Select(t => t.GetComponent<TrackItemPlaySoundTrigger>())
+                .Where(p => p != null).ToArray();
 
         Log.LogDebug(
             $"Detected {_animationPlayers.Length} animations and {_physicsPlayers.Length} physics for '{triggerTarget}' trigger");
@@ -69,6 +103,13 @@ internal class TriggerBehavior : MonoBehaviour
     // the pass actually triggered (i.e. it was not rejected by the speed gate).
     private bool HandlePass(Rigidbody body)
     {
+        // One-shot / cooldown gating. triggerOnce fires only the first pass per flight (re-armed
+        // on drone reset via ResetState); triggerCooldown rate-limits re-firing.
+        if (triggerOnce && _hasFiredOnce)
+            return false;
+        if (triggerCooldown > 0f && Time.time < _cooldownUntil)
+            return false;
+
         var speed = -1f;
         if (body != null)
         {
@@ -87,6 +128,9 @@ internal class TriggerBehavior : MonoBehaviour
         }
 
         _triggered = true;
+        _hasFiredOnce = true;
+        if (triggerCooldown > 0f)
+            _cooldownUntil = Time.time + triggerCooldown;
 
         Log.LogDebug($"Triggered by {body}, speed {speed}");
         foreach (var player in _animationPlayers)
@@ -102,9 +146,38 @@ internal class TriggerBehavior : MonoBehaviour
         }
 
         if (_teleportTargets != null && _teleportTargets.Length > 0 && body != null && _teleportDrone == null)
-            QueueTeleport(body);
+            QueueTeleport(body, speed);
+
+        if (boostEnabled && body != null)
+            ApplyBoost(body);
+
+        if (playSoundOnTrigger && _soundTriggers != null && PlaySoundMethod != null)
+            foreach (var sound in _soundTriggers)
+                if (sound != null)
+                    PlaySoundMethod.Invoke(sound, null);
 
         return true;
+    }
+
+    // Boost / brake gate: rescale the drone's speed in place (no teleport) on pass. An absolute
+    // targetSpeed (km/h) wins when set; otherwise a multiplier scales the current speed. Direction
+    // is preserved. Reuses the same km/h convention as the seamless-teleport exitSpeed remap.
+    private void ApplyBoost(Rigidbody body)
+    {
+        var velocity = body.velocity;
+        if (targetSpeed > 0f)
+        {
+            var speedMps = targetSpeed / 3.6f;
+            velocity = velocity.sqrMagnitude > 1e-6f
+                ? velocity.normalized * speedMps
+                : transform.forward * speedMps;
+        }
+        else if (speedMultiplier > 0f)
+        {
+            velocity *= speedMultiplier;
+        }
+
+        body.velocity = velocity;
     }
 
     // Picks a destination marker and computes where/how the drone should arrive. For a plain
@@ -112,9 +185,9 @@ internal class TriggerBehavior : MonoBehaviour
     // (legacy behaviour). For a seamless ("portal") teleport we re-express the drone's entry
     // velocity and orientation in the destination's frame, so it exits along the destination's
     // facing carrying its momentum — optionally rescaled to exitSpeed (km/h; 0 = keep speed).
-    private void QueueTeleport(Rigidbody body)
+    private void QueueTeleport(Rigidbody body, float speed)
     {
-        var target = _teleportTargets[Random.Range(0, _teleportTargets.Length)];
+        var target = SelectTarget(speed);
 
         _teleportDrone = body;
         _teleportPos = target.position;
@@ -126,6 +199,12 @@ internal class TriggerBehavior : MonoBehaviour
         var src = transform.parent != null ? transform.parent : transform;
         var entryToExit = target.rotation * Quaternion.Inverse(src.rotation);
 
+        // Re-express the drone's entry offset in the destination's frame so it exits at the same
+        // spot within the portal it entered. The offset is measured about src.position (not
+        // transform.position) to match the frame entryToExit is defined about — otherwise a
+        // parented trigger rotates the offset about the wrong pivot and lands off-target.
+        _teleportPos = target.position + entryToExit * (body.position - src.position);
+
         var exitVel = entryToExit * body.velocity;
         if (exitSpeed > 0f)
         {
@@ -136,6 +215,28 @@ internal class TriggerBehavior : MonoBehaviour
         _teleportVel = exitVel;
         _teleportRot = entryToExit * body.rotation;
         _teleportApplyMotion = true;
+    }
+
+    // Choose which exit marker (when several share the target name) the drone teleports to.
+    // Sequential cycles through them in order for predictable multi-exit routing; otherwise a
+    // random one is picked (scatter portal).
+    private Transform SelectTarget(float speed)
+    {
+        if (_teleportTargets.Length == 1)
+            return _teleportTargets[0];
+
+        // Speed-based routing: below the threshold take the first marker, at/above it the second
+        // (skill-gated shortcut). Falls back gracefully when only one marker is authored.
+        if (routeBySpeed)
+        {
+            var index = speed >= routeSpeedThreshold ? Mathf.Min(1, _teleportTargets.Length - 1) : 0;
+            return _teleportTargets[index];
+        }
+
+        if (sequentialTargets)
+            return _teleportTargets[_sequentialIndex++ % _teleportTargets.Length];
+
+        return _teleportTargets[Random.Range(0, _teleportTargets.Length)];
     }
 
     public void OnTriggerEnter(Collider other)
@@ -150,6 +251,25 @@ internal class TriggerBehavior : MonoBehaviour
     {
         if (_triggered && other.gameObject.layer == _droneLayer)
             _triggered = false;
+    }
+
+    // Wind / force volume: apply a continuous force to the drone every physics step it overlaps
+    // the volume (updrafts, wind tunnels, push/pull zones). Acceleration mode is mass-independent;
+    // Force mode scales with the drone's mass.
+    public void OnTriggerStay(Collider other)
+    {
+        if (!windEnabled || other.gameObject.layer != _droneLayer)
+            return;
+
+        var body = other.attachedRigidbody;
+        if (body == null)
+            return;
+
+        var force = new Vector3(forceVector.x, forceVector.y, forceVector.z);
+        if (forceLocalSpace)
+            force = transform.TransformDirection(force);
+
+        body.AddForce(force, forceMode == 1 ? ForceMode.Acceleration : ForceMode.Force);
     }
 
     // Anti-tunneling: OnTriggerEnter only fires when the drone overlaps a collider on some
@@ -222,5 +342,16 @@ internal class TriggerBehavior : MonoBehaviour
             continuousCollision.ResetTrajectory();
 
         _teleportDrone = null;
+    }
+
+    // Re-arm per-flight trigger state (one-shot / cooldown). Called from the drone-reset hook so a
+    // one-shot gate fires again on the next flight without a scene reload.
+    public void ResetState()
+    {
+        _triggered = false;
+        _sweptTriggered = false;
+        _hasFiredOnce = false;
+        _cooldownUntil = 0f;
+        _sequentialIndex = 0;
     }
 }

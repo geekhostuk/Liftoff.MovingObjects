@@ -73,6 +73,44 @@ namespace Liftoff.MovingObjects.Patcher
 
             AddSerializableField(assembly, animationOptsType, "animationRepeats",
                 assembly.MainModule.ImportReference(typeof(int)));
+            AddSerializableField(assembly, animationOptsType, "triggerAction",
+                assembly.MainModule.ImportReference(typeof(int)));
+            AddSerializableField(assembly, animationOptsType, "easingMode",
+                assembly.MainModule.ImportReference(typeof(int)));
+            AddSerializableField(assembly, animationOptsType, "pingPong",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, animationOptsType, "spinnerEnabled",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, animationOptsType, "spinAxis", vectorType);
+            AddSerializableField(assembly, animationOptsType, "spinSpeed",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "orbitEnabled",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, animationOptsType, "orbitRadius",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "orbitSpeed",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "orbitAxis", vectorType);
+            AddSerializableField(assembly, animationOptsType, "orbitFacePath",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, animationOptsType, "phaseOffset",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "randomizePhase",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, animationOptsType, "launchImpulse", vectorType);
+            AddSerializableField(assembly, animationOptsType, "launchTorque", vectorType);
+            AddSerializableField(assembly, animationOptsType, "overrideGravity",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, animationOptsType, "gravityScale",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "linearDrag",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "angularDrag",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "mass",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, animationOptsType, "killOnContact",
+                assembly.MainModule.ImportReference(typeof(bool)));
 
 
             var triggerType = AddSerializableType(assembly, "MO_TriggerOptions");
@@ -91,6 +129,31 @@ namespace Liftoff.MovingObjects.Patcher
                 assembly.MainModule.ImportReference(typeof(bool)));
             AddSerializableField(assembly, triggerType, "exitSpeed",
                 assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, triggerType, "triggerOnce",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, triggerType, "triggerCooldown",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, triggerType, "sequentialTargets",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, triggerType, "boostEnabled",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, triggerType, "speedMultiplier",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, triggerType, "targetSpeed",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, triggerType, "windEnabled",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, triggerType, "forceVector", vectorType);
+            AddSerializableField(assembly, triggerType, "forceMode",
+                assembly.MainModule.ImportReference(typeof(int)));
+            AddSerializableField(assembly, triggerType, "forceLocalSpace",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, triggerType, "routeBySpeed",
+                assembly.MainModule.ImportReference(typeof(bool)));
+            AddSerializableField(assembly, triggerType, "routeSpeedThreshold",
+                assembly.MainModule.ImportReference(typeof(float)));
+            AddSerializableField(assembly, triggerType, "playSoundOnTrigger",
+                assembly.MainModule.ImportReference(typeof(bool)));
 
             var animationType = AddSerializableType(assembly, "MO_Animation");
             AddSerializableField(assembly, animationType, "delay", assembly.MainModule.ImportReference(typeof(float)));

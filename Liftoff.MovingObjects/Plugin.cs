@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using BepInEx;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 using Liftoff.MovingObjects.Player;
@@ -22,6 +23,18 @@ public sealed class Plugin : BaseUnityPlugin
 
     private Harmony _harmony;
 
+    // Experimental multiplayer spectator sync. When you spectate another pilot, your client never
+    // fires the local drone-reset events (FlightManager.onDroneReset*), so moving objects keep
+    // running from their own start time and drift out of sync with what the spectated pilot sees.
+    // Liftoff logs a line when the spectator camera (re)attaches to a pilot — on their reset, and
+    // when you switch spectate target — so we watch the main-thread log stream for that marker and
+    // re-run our own reset + re-inject to resync. Off by default: the marker text is version-
+    // specific, and this is best-effort (network latency can still cause brief clipping).
+    private const string SpectatorAttachMarker = "Attached spectator camera to";
+    private static ConfigEntry<bool> _spectatorSyncEnabled;
+    private static float _lastSpectatorSyncTime = float.NegativeInfinity;
+    private const float SpectatorSyncDebounceSeconds = 0.5f;
+
     private void Awake()
     {
         Log.LogInfo($"{PluginInfo.PLUGIN_NAME} {PluginInfo.PLUGIN_VERSION} loaded");
@@ -31,6 +44,24 @@ public sealed class Plugin : BaseUnityPlugin
 
         try { _harmony = Harmony.CreateAndPatchAll(typeof(Plugin)); }
         catch (System.Exception ex) { Log.LogError($"Harmony.CreateAndPatchAll failed: {ex}"); }
+
+        _spectatorSyncEnabled = Config.Bind(
+            "Experimental", "SpectatorAnimationSync", false,
+            "EXPERIMENTAL. When spectating another pilot in multiplayer, re-sync moving-object "
+            + "animations each time the spectated pilot resets (detected from the game log stream). "
+            + "Best-effort and Liftoff-version-specific; network latency can still cause brief "
+            + "clipping. Takes effect on the next game start.");
+
+        if (_spectatorSyncEnabled.Value)
+        {
+            // Subscribe to logMessageReceived, NOT ...Threaded: the non-threaded event is raised on
+            // the Unity main thread, so OnGameLogMessage can call the reset path (FindObjectsOfType,
+            // AddComponent, component enable/disable) directly with no cross-thread marshalling. The
+            // handler is static, so it keeps working even after this MonoBehaviour is torn down early
+            // (see OnDestroy) — we never depend on this component's Update running.
+            Application.logMessageReceived += OnGameLogMessage;
+            Log.LogInfo("Experimental spectator animation sync enabled");
+        }
 
         try
         {
@@ -96,11 +127,27 @@ public sealed class Plugin : BaseUnityPlugin
         placementUtilsWindow.assets = _placementAssets;
     }
 
-    // PopupShareContent.ShareItem patch removed: signature changed in the current
-    // game (now takes a third parameter), and HarmonyX throws on a missing target,
-    // which would abort CreateAndPatchAll and prevent every other patch attaching.
-    // The feature (overriding the Workshop preview image with a local preview.png)
-    // can be re-enabled once the new third parameter type is referenceable.
+    // Override the Workshop preview image with a local preview.png when sharing a track.
+    // The current game's ShareItem gained a third parameter of an obfuscated (unnameable) type,
+    // which is why the old two-type-argument patch could no longer bind. There is only one
+    // ShareItem overload, so we patch it by name alone (no parameter types) — HarmonyX resolves
+    // the single method without us naming the obfuscated type — and reach the Sprite preview
+    // positionally via __1 (the second parameter).
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(PopupShareContent), "ShareItem")]
+    private static void ShareItem(ref Sprite __1)
+    {
+        var overwritePreview = Path.Combine(Paths.GameRootPath, "preview.png");
+        if (!File.Exists(overwritePreview))
+        {
+            Log.LogInfo($"Preview overwrite not found {overwritePreview}, skip");
+            return;
+        }
+
+        var preview = new Texture2D(2, 2);
+        preview.LoadImage(File.ReadAllBytes(overwritePreview));
+        __1 = Sprite.Create(preview, new Rect(0, 0, preview.width, preview.height), new Vector2(0.5f, 0.5f));
+    }
 
     [HarmonyPostfix]
     [HarmonyPatch(typeof(TrackEditorEditWindow), "AtLeastOneItemAvailable", typeof(TrackItemCategory))]
@@ -145,6 +192,9 @@ public sealed class Plugin : BaseUnityPlugin
     // postfix on FlightManager.Start, which is reliably called once per flight session.
     private static FlightManager _hookedFlightManager;
 
+    // Exposed so HazardContact can crash the drone via the active flight manager.
+    internal static FlightManager HookedFlightManager => _hookedFlightManager;
+
     [HarmonyPostfix]
     [HarmonyPatch(typeof(FlightManager), "Start")]
     private static void OnFlightManagerStart(FlightManager __instance)
@@ -154,6 +204,33 @@ public sealed class Plugin : BaseUnityPlugin
         _hookedFlightManager = __instance;
         __instance.onDroneResetStart += OnDroneResetStart;
         __instance.onDroneResetDone += OnDroneResetDone;
+
+        // Report the physics step actually in force during flight. Trigger/checkpoint
+        // detection is capped at this rate (see TriggerBehavior), so knowing it explains
+        // detection granularity. Logged here rather than at plugin load because the menu
+        // scene may run a different fixedDeltaTime than flight.
+        Log.LogInfo(
+            $"Physics step: fixedDeltaTime={Time.fixedDeltaTime:F5}s ({1f / Time.fixedDeltaTime:F1} Hz)");
+    }
+
+    // Main-thread log handler for experimental spectator sync (see the field comment in Awake).
+    // Liftoff emits SpectatorAttachMarker whenever the spectator camera (re)attaches to a pilot;
+    // that fires on the spectated pilot's reset and on a spectate-target switch — both cases where
+    // our moving objects need to be reset to line back up with the pilot's client.
+    private static void OnGameLogMessage(string condition, string stackTrace, LogType type)
+    {
+        if (condition == null ||
+            condition.IndexOf(SpectatorAttachMarker, System.StringComparison.Ordinal) < 0)
+            return;
+
+        // A target switch can emit the marker several times in a burst; debounce so we resync once.
+        if (Time.unscaledTime - _lastSpectatorSyncTime < SpectatorSyncDebounceSeconds)
+            return;
+        _lastSpectatorSyncTime = Time.unscaledTime;
+
+        Log.LogInfo("Spectated pilot reset detected — re-syncing moving objects");
+        OnDroneResetStart();
+        OnDroneResetDone();
     }
 
     private static void OnDroneResetStart()
@@ -168,6 +245,10 @@ public sealed class Plugin : BaseUnityPlugin
             p.enabled = false;
             p.Restart();
         }
+
+        // Re-arm per-flight trigger state (one-shot gates, cooldowns, sequential counters).
+        foreach (var t in FindObjectsOfType<TriggerBehavior>())
+            t.ResetState();
     }
 
     private static void OnDroneResetDone()
@@ -178,8 +259,9 @@ public sealed class Plugin : BaseUnityPlugin
         // so this is cheap on subsequent resets and only does real work when the
         // track has changed and new flag GameObjects are present.
         var flags = EditorUtils.FindAllFlags();
-        GroupFlags(flags);
-        InjectPlayers(flags);
+        var groupRoots = ComputeGroupRoots(flags);
+        GroupFlags(flags, groupRoots);
+        InjectPlayers(flags, groupRoots);
 
         foreach (var p in FindObjectsOfType<AnimationPlayer>()) p.enabled = true;
         foreach (var p in FindObjectsOfType<PhysicsPlayer>()) p.enabled = true;
@@ -226,8 +308,6 @@ public sealed class Plugin : BaseUnityPlugin
 
     private static void AddPhysics(TrackBlueprint blueprint, Component flag, bool waitForTrigger)
     {
-        if (!string.IsNullOrEmpty(blueprint.mo_groupId))
-            return; // TODO: Fix group physics
         if (flag.gameObject.GetComponent<PhysicsPlayer>() != null)
             return;
 
@@ -237,8 +317,35 @@ public sealed class Plugin : BaseUnityPlugin
         player.options = blueprint.mo_animationOptions;
         player.waitForTrigger = waitForTrigger;
 
-        var collider = flag.GetComponentInChildren<Collider>();
-        if (collider?.enabled == false)
+        // Only the group root (the flag carrying mo_animationOptions) reaches here, so it gets the
+        // single Rigidbody. GroupFlags has already transform-parented the other members underneath
+        // it, so they act as compound colliders of that one body — no nested rigidbodies. Prepare
+        // every collider in the assembly so the whole group collides, not just the root.
+        if (!string.IsNullOrEmpty(blueprint.mo_groupId))
+        {
+            foreach (var groupCollider in flag.GetComponentsInChildren<Collider>(true))
+                PreparePhysicsCollider(groupCollider);
+            return;
+        }
+
+        PreparePhysicsCollider(flag.GetComponentInChildren<Collider>());
+    }
+
+    // A collider that belongs to a moving object's dynamic (non-kinematic) Rigidbody has two
+    // requirements the placed decorative item doesn't meet on its own:
+    //  - it must be enabled (placed items often ship with their collider off), and
+    //  - a MeshCollider must be convex. Unity silently drops a non-convex MeshCollider from a
+    //    non-kinematic Rigidbody, so the body falls through surfaces or slides instead of rolling.
+    //    Convex-hulling each half-sphere mesh is what lets a grouped sphere roll as one ball.
+    private static void PreparePhysicsCollider(Collider collider)
+    {
+        if (collider == null)
+            return;
+
+        if (collider is MeshCollider meshCollider)
+            meshCollider.convex = true;
+
+        if (!collider.enabled)
         {
             collider.enabled = true;
             collider.gameObject.layer = LayerMask.NameToLayer("Ghost");
@@ -253,9 +360,14 @@ public sealed class Plugin : BaseUnityPlugin
         Log.LogInfo($"Item with animation detected: {blueprint}, {flag}");
 
         var player = flag.gameObject.AddComponent<AnimationPlayer>();
-        player.steps = blueprint.mo_animationSteps;
+        // A spinner/orbit-only object may carry no step list; the player iterates steps on init.
+        player.steps = blueprint.mo_animationSteps ?? new List<MO_Animation>();
         player.options = blueprint.mo_animationOptions;
-        player.waitForTrigger = waitForTrigger;
+
+        var action = (MO_TriggerAction)blueprint.mo_animationOptions.triggerAction;
+        // Stop-mode targets run from load so the trigger has something to halt; Restart-mode
+        // targets stay dormant until triggered.
+        player.waitForTrigger = waitForTrigger && action != MO_TriggerAction.Stop;
     }
 
     private static bool AddTrigger(TrackBlueprint blueprint, Component flag)
@@ -271,7 +383,9 @@ public sealed class Plugin : BaseUnityPlugin
             Log.LogInfo($"Item with trigger detected: {options.triggerTarget}/{options.triggerName}, {flag}");
         }
 
-        if (!string.IsNullOrEmpty(options.triggerTarget))
+        // A trigger behaviour is needed for a teleport/animation target OR for a standalone
+        // in-place effect (boost/brake gate, wind volume) that has no target.
+        if (!string.IsNullOrEmpty(options.triggerTarget) || options.boostEnabled || options.windEnabled)
         {
             var checkpointTrigger = flag.gameObject.transform.Find("CheckpointTrigger");
             if (checkpointTrigger != null && checkpointTrigger.gameObject.GetComponent<TriggerBehavior>() == null)
@@ -285,13 +399,26 @@ public sealed class Plugin : BaseUnityPlugin
                 trigger.triggerTeleport = options.triggerTeleport;
                 trigger.seamlessTeleport = options.seamlessTeleport;
                 trigger.exitSpeed = options.exitSpeed;
+                trigger.triggerOnce = options.triggerOnce;
+                trigger.triggerCooldown = options.triggerCooldown;
+                trigger.sequentialTargets = options.sequentialTargets;
+                trigger.boostEnabled = options.boostEnabled;
+                trigger.speedMultiplier = options.speedMultiplier;
+                trigger.targetSpeed = options.targetSpeed;
+                trigger.windEnabled = options.windEnabled;
+                trigger.forceVector = options.forceVector;
+                trigger.forceMode = options.forceMode;
+                trigger.forceLocalSpace = options.forceLocalSpace;
+                trigger.routeBySpeed = options.routeBySpeed;
+                trigger.routeSpeedThreshold = options.routeSpeedThreshold;
+                trigger.playSoundOnTrigger = options.playSoundOnTrigger;
             }
         }
 
         return waitForTrigger;
     }
 
-    private static void InjectPlayers(IEnumerable<Component> flags)
+    private static void InjectPlayers(IEnumerable<Component> flags, Dictionary<string, GameObject> groupRoots)
     {
         foreach (var flag in flags)
         {
@@ -301,17 +428,103 @@ public sealed class Plugin : BaseUnityPlugin
             if (blueprint?.mo_triggerOptions != null)
                 waitForTrigger = AddTrigger(blueprint, flag);
 
-            if (blueprint?.mo_animationOptions?.simulatePhysics == true)
-                AddPhysics(blueprint, flag, waitForTrigger);
-            else if (blueprint?.mo_animationSteps?.Count > 0)
-                AddAnimation(blueprint, flag, waitForTrigger);
+            // In a group, only the elected root drives motion; the other members are transform-parented
+            // under it by GroupFlags and ride along as its compound body. Give every member its own
+            // player and each gets its own kinematic Rigidbody, all of them driving the shared body
+            // pose toward their own captured _initPosition — they fight and the group locks up. That is
+            // exactly why honk's fan (shaft + 4 blades, all five carrying animation config) span in
+            // preview, which uses a single follow-driver, yet froze in flight. So skip the motion
+            // player for non-root grouped members. Triggers and hazard-on-contact don't add a
+            // competing body, so they still apply per member.
+            var isNonRootGroupMember =
+                !string.IsNullOrEmpty(blueprint?.mo_groupId)
+                && groupRoots.TryGetValue(blueprint.mo_groupId, out var root)
+                && root != flag.gameObject;
+
+            if (!isNonRootGroupMember)
+            {
+                if (blueprint?.mo_animationOptions?.simulatePhysics == true)
+                    AddPhysics(blueprint, flag, waitForTrigger);
+                // Continuous modes (spinner / orbit) run without a step list, so gate on them too —
+                // otherwise a spinner-only object gets no AnimationPlayer and never rotates in flight
+                // (it still previews in the editor, which attaches a player unconditionally).
+                else if (blueprint?.mo_animationSteps?.Count > 0
+                         || blueprint?.mo_animationOptions?.spinnerEnabled == true
+                         || blueprint?.mo_animationOptions?.orbitEnabled == true)
+                    AddAnimation(blueprint, flag, waitForTrigger);
+            }
+
+            // Hazard-on-contact turns the moving object into a drone-killer (idempotent).
+            if (blueprint?.mo_animationOptions?.killOnContact == true &&
+                flag.gameObject.GetComponent<HazardContact>() == null)
+                flag.gameObject.AddComponent<HazardContact>();
         }
     }
 
-    private static void GroupFlags(IEnumerable<Component> flags)
+    // One motion driver per group: the elected member is the root that GroupFlags parents the others
+    // under and that InjectPlayers gives the single player. The driver MUST be a member that actually
+    // carries motion, i.e. one InjectPlayers will really give a player to (physics / spinner / orbit /
+    // keyframe steps). Electing merely "the first member with non-null options" was the bug behind
+    // honk's frozen chamber: a group built from copies (copy/paste/stamp deep-clone the whole blueprint,
+    // MO config included) can carry a non-null but motionless mo_animationOptions on several pieces. If
+    // such a motionless piece won, the root failed InjectPlayers' gate and got no player, while the real
+    // spinner/step member was skipped as a non-root member — so the group stood still in flight though
+    // every piece previewed fine (the editor drives the selected member directly). Prefer a motion-
+    // carrying member; fall back to any non-null-options member so motionless groups behave as before.
+    // First-in-stable-order within each tier keeps the choice deterministic across resets, so the same
+    // member wins every reset and GroupFlags' idempotent "already grouped?" check stays valid.
+    //
+    // NOTE: this is still ONE driver per group. Two members with different motions (e.g. a spinner on
+    // one piece and a 90-degree step door on another) cannot both play in flight — only the elected
+    // root moves. Independent motions need to live in separate groups (or stay ungrouped).
+    private static Dictionary<string, GameObject> ComputeGroupRoots(IEnumerable<Component> flags)
+    {
+        var roots = new Dictionary<string, GameObject>();
+        var rootHasMotion = new Dictionary<string, bool>();
+
+        foreach (var flag in flags)
+        {
+            var blueprint = ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(flag);
+            if (string.IsNullOrEmpty(blueprint?.mo_groupId) || blueprint.mo_animationOptions == null)
+                continue;
+
+            var groupId = blueprint.mo_groupId;
+            var hasMotion = HasMotion(blueprint);
+
+            // First member seeds a provisional root; a later motion-carrying member upgrades a
+            // motionless provisional root (but never displaces an already motion-carrying one).
+            if (!roots.ContainsKey(groupId))
+            {
+                roots[groupId] = flag.gameObject;
+                rootHasMotion[groupId] = hasMotion;
+            }
+            else if (hasMotion && !rootHasMotion[groupId])
+            {
+                roots[groupId] = flag.gameObject;
+                rootHasMotion[groupId] = true;
+            }
+        }
+
+        return roots;
+    }
+
+    // A group member drives motion in flight only if InjectPlayers would give it a player: a physics
+    // body, or an animation (continuous spinner / orbit, or a keyframe step list). Mirrors the gate in
+    // InjectPlayers exactly so the elected root is guaranteed to receive a player.
+    private static bool HasMotion(TrackBlueprint blueprint)
+    {
+        var options = blueprint.mo_animationOptions;
+        if (options == null)
+            return false;
+        return options.simulatePhysics
+               || options.spinnerEnabled
+               || options.orbitEnabled
+               || blueprint.mo_animationSteps?.Count > 0;
+    }
+
+    private static void GroupFlags(IEnumerable<Component> flags, Dictionary<string, GameObject> rootObjects)
     {
         var groups = new Dictionary<string, List<GameObject>>();
-        var rootObjects = new Dictionary<string, GameObject>();
 
         foreach (var flag in flags)
         {
@@ -324,9 +537,6 @@ public sealed class Plugin : BaseUnityPlugin
                 list.Add(flag.gameObject);
             else
                 groups[groupId] = new List<GameObject> { flag.gameObject };
-
-            if (blueprint.mo_animationOptions != null)
-                rootObjects[groupId] = flag.gameObject;
         }
 
         foreach (var (groupId, gameObjects) in groups)
@@ -350,7 +560,13 @@ public sealed class Plugin : BaseUnityPlugin
             groupObject.transform.rotation = rootObj.transform.rotation;
 
             foreach (var o in gameObjects)
+            {
+                // Skip the root itself: it is the parent of groupObject, so reparenting it under
+                // groupObject would ask Unity to make it its own descendant (a transform cycle).
+                if (o == rootObj)
+                    continue;
                 o.transform.parent = groupObject.transform;
+            }
         }
     }
 }

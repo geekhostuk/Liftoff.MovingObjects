@@ -8,6 +8,8 @@ if (args.Length >= 1 && args[0] == "audit")
     return Audit.Run(args);
 if (args.Length >= 1 && args[0] == "search")
     return StringSearch.Run(args);
+if (args.Length >= 1 && args[0] == "il")
+    return DumpIL.Run(args);
 
 if (args.Length < 2)
 {
