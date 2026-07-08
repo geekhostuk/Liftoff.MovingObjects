@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using BepInEx.Logging;
 using Liftoff.MovingObjects.Player;
 using Liftoff.MovingObjects.Utils;
@@ -62,6 +63,9 @@ internal class PlacementUtilsWindow : MonoBehaviour
         _uiDocument.visualTreeAsset = assets.VisualTreeAsset;
         _uiDocument.panelSettings = assets.PanelSettings;
         _uiDocument.rootVisualElement.StretchToParentSize();
+        // Keep arrow keys inside focused text fields (see GuiUtils) so they don't navigate focus out
+        // and leak to the fly-camera while you're typing a value.
+        GuiUtils.KeepArrowsInTextFields(_uiDocument.rootVisualElement);
 
         Shared.Editor.OnItemSelected += OnItemSelected;
         Shared.Editor.OnItemCleared += OnItemCleared;
@@ -395,6 +399,10 @@ internal class PlacementUtilsWindow : MonoBehaviour
         foreach (var flag in flags)
             ItemSpawner.RemoveItem(flag);
 
+        // The game still had the deleted item selected in gizmo mode, which would leave its transform
+        // gizmo floating with nothing attached — drop back to place mode so the game clears it.
+        ItemSpawner.ClearGizmoSelection();
+
         Shared.Editor.RequestRefreshGui();
     }
 
@@ -578,34 +586,6 @@ internal class PlacementUtilsWindow : MonoBehaviour
         field.SetValueWithoutNotify(GuiUtils.FloatToString(value));
     }
 
-    // Arrow-key nudge of the gizmo by the grid step (Shift = vertical). Suppressed while a text
-    // field is focused so the arrows edit text instead.
-    private void NudgeGizmo()
-    {
-        if (_root?.panel?.focusController?.focusedElement is TextField)
-            return;
-
-        var gizmo = GameObject.Find("TrackEditorGizmo");
-        if (gizmo == null)
-            return;
-
-        var step = Shared.PlacementUtils.GridRound > 0 ? Shared.PlacementUtils.GridRound : 1f;
-        var shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-        var delta = Vector3.zero;
-
-        if (Input.GetKeyDown(KeyCode.LeftArrow))
-            delta.x -= step;
-        if (Input.GetKeyDown(KeyCode.RightArrow))
-            delta.x += step;
-        if (Input.GetKeyDown(KeyCode.UpArrow))
-            delta += shift ? Vector3.up * step : Vector3.forward * step;
-        if (Input.GetKeyDown(KeyCode.DownArrow))
-            delta += shift ? Vector3.down * step : Vector3.back * step;
-
-        if (delta != Vector3.zero)
-            gizmo.transform.position += delta;
-    }
-
     private void Update()
     {
         if (Input.GetKeyDown(KeyCode.F1))
@@ -622,7 +602,6 @@ internal class PlacementUtilsWindow : MonoBehaviour
             DeleteSelection();
 
         RefreshTransformFields();
-        NudgeGizmo();
 
         if (!Shared.PlacementUtils.EnchantedEditor)
             return;
@@ -706,12 +685,89 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
     private void DeselectAll()
     {
-        foreach (var info in FindObjectsOfType<GroupSelectionInfo>())
+        // Include inactive (the `true`): a highlight clone / selection marker whose carrier got
+        // deactivated — e.g. a group member hidden during a preview, or a clone left parented under an
+        // object that a group edit deactivated — is skipped by the default active-only search, so it
+        // survives teardown and leaves a "ghost" overlay lingering until the next reload. Sweeping
+        // inactive carriers too destroys those leftovers.
+        foreach (var info in FindObjectsOfType<GroupSelectionInfo>(true))
             Destroy(info.gameObject);
+    }
+
+    // The magenta group highlight below is a clone of the game's own hover overlay child
+    // "<name>(Clone)_Overlay", which the game builds LAZILY the first time the cursor passes over an
+    // object. So a freshly loaded, never-hovered group member had no overlay to clone and stayed
+    // uncoloured until hovered (honk: "group objects only get their pink highlight after being hovered
+    // at least once"). Here we force the game to build that overlay up front by invoking the flag's
+    // own public highlight method — the same one hover calls, which instantiates the overlay child,
+    // activates it and tints it — then hide the game's copy again so only our magenta clone shows.
+    //
+    // The method name is obfuscated, so we locate it by shape (public instance void taking a single
+    // bool, on the TrackItem overlay base) and cache it per type. The two matching methods on that
+    // base both create the overlay, so either is fine. We verify the overlay actually appeared before
+    // touching it; if the game build ever changes shape this simply no-ops and Highlight() falls back
+    // to the previous hover-gated behaviour — no crash, just no pre-hover highlight.
+    private static readonly Dictionary<Type, MethodInfo> _highlightMethods = new();
+
+    private void EnsureGameOverlay(GameObject targetObject)
+    {
+        var overlayName = targetObject.name + "(Clone)_Overlay";
+        if (targetObject.transform.Find(overlayName) != null)
+            return;
+
+        var flag = EditorUtils.FindFlagInParent(targetObject);
+        if (flag == null)
+            return;
+
+        try
+        {
+            var method = ResolveHighlightMethod(flag.GetType());
+            if (method == null)
+                return;
+
+            method.Invoke(flag, new object[] { true });
+
+            // Hide the game's own (placeable-colour) overlay it just activated — our magenta clone is
+            // what we want on screen. Transform.Find still locates the now-inactive child.
+            var overlay = targetObject.transform.Find(overlayName);
+            if (overlay != null)
+                overlay.gameObject.SetActive(false);
+        }
+        catch (Exception ex)
+        {
+            Log.LogDebug($"EnsureGameOverlay failed for {targetObject.name}: {ex.Message}");
+        }
+    }
+
+    private static MethodInfo ResolveHighlightMethod(Type flagType)
+    {
+        if (_highlightMethods.TryGetValue(flagType, out var cached))
+            return cached;
+
+        var candidates = flagType
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+            .Where(m => !m.IsAbstract
+                        && m.ReturnType == typeof(void)
+                        && m.GetParameters().Length == 1
+                        && m.GetParameters()[0].ParameterType == typeof(bool)
+                        && m.DeclaringType != typeof(MonoBehaviour)
+                        && typeof(MonoBehaviour).IsAssignableFrom(m.DeclaringType))
+            .ToList();
+
+        // The game's overlay-highlight entry points are virtual and live on a shared base class;
+        // prefer virtual-on-base, then any virtual, then anything matching the shape.
+        var method = candidates.FirstOrDefault(m => m.IsVirtual && m.DeclaringType != flagType)
+                     ?? candidates.FirstOrDefault(m => m.IsVirtual)
+                     ?? candidates.FirstOrDefault();
+
+        _highlightMethods[flagType] = method;
+        return method;
     }
 
     private GameObject Highlight(GameObject targetObject)
     {
+        EnsureGameOverlay(targetObject);
+
         var highlightObj = targetObject.transform.Find(targetObject.name + "(Clone)_Overlay");
         if (highlightObj == null)
             return null;
@@ -807,7 +863,11 @@ internal class PlacementUtilsWindow : MonoBehaviour
         }
 
         var selectedObject = trackItemFlag.gameObject;
-        var existsGroupInfo = selectedObject.GetComponentInChildren<GroupSelectionInfo>();
+        // Include inactive (the `true`): if the existing marker sits on a deactivated carrier the
+        // default search misses it, so this toggle would stack a second highlight on top instead of
+        // removing the first — leaving a duplicate overlay behind. Matching inactive markers too keeps
+        // the middle-click toggle a true toggle.
+        var existsGroupInfo = selectedObject.GetComponentInChildren<GroupSelectionInfo>(true);
         if (existsGroupInfo != null)
         {
             Destroy(existsGroupInfo.gameObject);

@@ -35,6 +35,87 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.3.6
+
+- **Alt + Arrow gizmo nudging removed.** The hold-Alt nudge (added in 1.3.2) has been taken out at
+  Honk's request. It proved fiddly — it had to freeze the fly-camera while Alt was held, which paused
+  mouse-look and repeatedly interfered with typing in text fields. The arrow keys now do exactly what
+  vanilla Liftoff does: fly the editor camera, nothing more. Nudge objects with the numeric transform
+  fields instead. Arrow keys still stay inside a focused text field (the 1.3.5 fix is unaffected).
+
+### New in 1.3.5
+
+- **Arrow keys stay inside a text field while typing (the real fix).** Editing a mod text field and
+  pressing an arrow at the end of the value could kick focus out of the field and move your avatar
+  (Honk: "Right arrow moves the avatar and exits the field"). The cause is UI Toolkit's directional
+  focus-navigation: an arrow the field can't use for the caret gets turned into a focus-move that
+  exits the field, and losing focus drops the game's "typing, don't move" suppression so the key
+  reaches the fly-camera. The mod now swallows that navigation while a text field is focused, so the
+  arrows stay in the field (caret only) and the avatar doesn't move — matching the game's own fields.
+  (This supersedes the 1.3.3 attempt, which mis-blamed the hold-Alt nudge and didn't fix it.)
+
+### New in 1.3.4
+
+- **Deleting with F9 no longer leaves a "lonely" gizmo behind.** After F9-deleting a selected item or
+  group, the game still had it selected in gizmo-manipulation mode, so the transform gizmo was left
+  floating with nothing attached (thanks Honk). Delete now drops the editor back to Place mode
+  afterwards — the same thing the editor's own "return to place mode" button does — so the game
+  deselects and clears the gizmo. Selecting another item re-enters gizmo mode as normal.
+
+### New in 1.3.3
+
+Follow-up fix to the 1.3.2 hold-Alt nudge.
+
+- **Arrow keys behave normally again while typing in a field.** In 1.3.2 the fly-camera freeze engaged
+  whenever **Alt** was held — including while you were editing a text field. Freezing disables the
+  avatar's controller, which is what vanilla Liftoff relies on to keep arrow keys inside a focused
+  field, so with Alt held an arrow key could move the avatar and kick focus out of the field (thanks
+  Honk). The mod now does nothing with the arrows while any text field is focused — no nudge, no
+  freeze — so typing is pure vanilla again. Nudging outside fields (**Alt + arrows**) is unchanged.
+
+### New in 1.3.2
+
+Two more editor fixes from Honk's playtest.
+
+- **Arrow-key nudge no longer flies your avatar too.** The editor fly-camera also moves on the arrow
+  keys (Unity binds them alongside WASD), so nudging the gizmo with the arrows moved *you* at the same
+  time — a problem especially for creators who navigate with the arrow keys instead of WASD. Nudge is
+  now a **hold-Alt** action: **plain arrows fly the camera as normal**, and **Alt + arrows** nudge the
+  gizmo only (while Alt is held the fly-camera is frozen so the arrows can't move you). **Shift** still
+  means vertical, so **Alt + Shift + arrows** nudges up/down. Note: mouse-look pauses while Alt is held.
+- **Group edits no longer leave a "ghost" highlight behind.** After removing pieces from a group
+  (Shift+MMB), regrouping, duplicating and re-merging, a leftover highlight overlay could linger at old
+  positions (purely visual — it cleared on reload / "fly track → return to builder"). Selection
+  teardown now also sweeps highlight clones/markers whose carrier object had been deactivated, which it
+  previously skipped. (The duplicate/copy/mirror/stamp path was already clean — it spawns from the game
+  prefab, so it never copied overlay children.)
+
+### New in 1.3.1
+
+Bugfix release on top of the stable 1.3.0 line — five small editor fixes/quality-of-life tweaks
+from Honk's playtest feedback. No changes to flight-time behaviour or the save format.
+
+- **Arrow-key nudge no longer fires while you're typing.** Nudging the gizmo with the arrow keys is
+  handy, but the keys were also moving the selected object while you were editing a text field — e.g.
+  an animation step's Time/Delay — so a value edit could teleport the object (thanks Honk). The mod
+  runs two independent editor panels; the guard only watched one, so typing in the *other* still
+  nudged. Arrows are now suppressed whenever any editor text field has focus.
+- **Grouped objects show their pink highlight immediately.** Selecting a group only tinted the
+  members you'd already moused over — the magenta highlight is cloned from the game's hover overlay,
+  which the game builds *lazily* on first hover, so never-hovered members stayed uncoloured until
+  touched. The mod now forces that overlay to be built up front, so the whole group lights up on
+  selection (this also makes **Select all** show magenta on freshly loaded blocks). Grouping itself
+  was always correct; this was purely cosmetic.
+- **Scaling a grouped object no longer drags the rest of the group around.** Resizing a scalable
+  block that belonged to a selected group made every *other* member slide toward or away from it
+  (their sizes didn't change — only their spacing), which quietly shifted the group (thanks Honk).
+  Group-follow is now rigid: moving or rotating the group anchor still moves the whole group together,
+  but scaling a member is a purely local change.
+- **Animation step buttons are on one row.** The per-step buttons (Delete / Update / ↑ / ↓ / +) used
+  to stack vertically and ate a lot of height; they're now a single compact row per step.
+- **Faster step-list scrolling.** The animation step list (and the whole editor panel) scrolled a
+  tiny amount per mouse-wheel notch; the wheel step is now much larger.
+
 ### New in 1.3.0
 
 First **stable** release of the moving-objects feature line. It promotes the work that shipped
@@ -231,8 +312,8 @@ A large feature release implementing the remaining `ideas.md` backlog. Grouped b
   boost / brake gates (in-place speed rescale), wind / force volumes, speed-based routing,
   sound-on-trigger (drives the native sound item), and hazard-on-contact (kills the drone).
 - **Editor authoring** — copy/paste of MO config between objects, editable / reorderable
-  animation steps, an animation path preview, a timeline scrubber, numeric transform entry +
-  arrow-key nudge, trigger/portal validation (lint), on-demand object/triangle stats, and
+  animation steps, an animation path preview, a timeline scrubber, numeric transform entry,
+  trigger/portal validation (lint), on-demand object/triangle stats, and
   in-editor trigger-link gizmos.
 - **Item spawning** — the mod can now instantiate track items from blueprints (the long-missing
   primitive), enabling single-item **Duplicate** and **Array** placement. Multi-object
@@ -320,7 +401,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.3.0.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.3.6.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`

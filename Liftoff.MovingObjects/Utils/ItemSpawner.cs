@@ -112,6 +112,38 @@ internal static class ItemSpawner
         }
     }
 
+    // After the mod deletes the gizmo-selected item(s), the game's gizmo-manipulation handler still
+    // points at the now-destroyed object, so the transform gizmo is left floating with nothing
+    // attached (honk: "deleting a group with F9 leaves a lonely gizmo"). The game clears that
+    // selection and hides the gizmo when it leaves gizmo-manipulation place mode, so we drive the
+    // edit window back to the default place mode — the same thing the editor's own "return to place
+    // mode" button does. SetPlaceMode is private, so we call it reflectively; PlaceMode is a public
+    // nested enum. Guarded, so it no-ops (leaving today's behaviour) if the game build ever changes.
+    public static void ClearGizmoSelection()
+    {
+        try
+        {
+            var editWindow = UnityEngine.Object.FindObjectOfType<TrackEditorEditWindow>();
+            if (editWindow == null)
+                return;
+
+            var setPlaceMode = typeof(TrackEditorEditWindow).GetMethod("SetPlaceMode",
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            if (setPlaceMode == null)
+            {
+                Log.LogWarning("TrackEditorEditWindow.SetPlaceMode not found; can't clear the gizmo.");
+                return;
+            }
+
+            setPlaceMode.Invoke(editWindow,
+                new object[] { TrackEditorEditWindow.PlaceMode.DragCenterCamera });
+        }
+        catch (Exception e)
+        {
+            Log.LogWarning($"ClearGizmoSelection failed: {e.Message}");
+        }
+    }
+
     // Duplicate an existing item's blueprint at an offset, carrying its MO configuration but a
     // fresh group id (so a duplicate never silently merges into the source's group). The source is
     // deep-cloned before spawning so ApplyMoConfig's write-back (which persists the new item's

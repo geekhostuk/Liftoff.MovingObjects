@@ -82,30 +82,26 @@ internal class FakeGroup
 
         private Vector3 startParentPosition;
         private Quaternion startParentRotationQ;
-        private Vector3 startParentScale;
 
         private void Start()
         {
             startParentPosition = fakeParent.position;
             startParentRotationQ = fakeParent.rotation;
-            startParentScale = fakeParent.lossyScale;
 
-            startChildPosition = transform.position;
             startChildRotationQ = transform.rotation;
 
-            startChildPosition =
-                DivideVectors(Quaternion.Inverse(fakeParent.rotation) * (startChildPosition - startParentPosition),
-                    startParentScale);
-        }
-
-        private static Vector3 DivideVectors(Vector3 num, Vector3 den)
-        {
-            return new Vector3(num.x / den.x, num.y / den.y, num.z / den.z);
+            // Store the member's offset in the parent's rotated frame only — no scale term. The group
+            // follows the anchor's translation and rotation rigidly, but NOT its scale: resizing the
+            // anchor (e.g. a scalable block) used to feed fakeParent.lossyScale into the matrix and
+            // slide every member toward/away from it (honk: "the whole group scales with it"). Members
+            // never had their own size changed, only their position, so this only respaced the group —
+            // now scaling a member is a purely local change.
+            startChildPosition = Quaternion.Inverse(fakeParent.rotation) * (transform.position - startParentPosition);
         }
 
         private void Update()
         {
-            parentMatrix = Matrix4x4.TRS(fakeParent.position, fakeParent.rotation, fakeParent.lossyScale);
+            parentMatrix = Matrix4x4.TRS(fakeParent.position, fakeParent.rotation, Vector3.one);
             transform.position = parentMatrix.MultiplyPoint3x4(startChildPosition);
             transform.rotation = fakeParent.rotation * Quaternion.Inverse(startParentRotationQ) * startChildRotationQ;
         }
