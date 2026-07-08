@@ -115,6 +115,9 @@ internal class AnimationEditorWindow : MonoBehaviour
         _uiDocument.visualTreeAsset = assets.VisualTreeAsset;
         _uiDocument.panelSettings = assets.PanelSettings;
         _uiDocument.rootVisualElement.StretchToParentSize();
+        // Keep arrow keys inside focused text fields (e.g. the step Time/Delay fields) so they don't
+        // navigate focus out and leak to the fly-camera while you're typing (see GuiUtils).
+        GuiUtils.KeepArrowsInTextFields(_uiDocument.rootVisualElement);
 
         Shared.Editor.OnRefreshGuiRequest += RefreshGui;
     }

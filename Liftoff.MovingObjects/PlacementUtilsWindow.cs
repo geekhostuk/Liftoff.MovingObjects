@@ -63,6 +63,9 @@ internal class PlacementUtilsWindow : MonoBehaviour
         _uiDocument.visualTreeAsset = assets.VisualTreeAsset;
         _uiDocument.panelSettings = assets.PanelSettings;
         _uiDocument.rootVisualElement.StretchToParentSize();
+        // Keep arrow keys inside focused text fields (see GuiUtils) so they don't navigate focus out
+        // and leak to the fly-camera while you're typing a value.
+        GuiUtils.KeepArrowsInTextFields(_uiDocument.rootVisualElement);
 
         Shared.Editor.OnItemSelected += OnItemSelected;
         Shared.Editor.OnItemCleared += OnItemCleared;
