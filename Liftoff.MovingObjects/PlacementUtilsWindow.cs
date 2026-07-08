@@ -639,12 +639,32 @@ internal class PlacementUtilsWindow : MonoBehaviour
         UpdateNudgeCameraFreeze(false);
     }
 
-    // Arrow-key nudge of the gizmo by the grid step (Shift = vertical), active only while the Alt
-    // nudge modifier is held (see Update / UpdateNudgeCameraFreeze). Also suppressed while a text
-    // field is focused so the arrows edit text instead. The mod runs two independent UI Toolkit
-    // panels (this window and the animation editor), each with its own focusController, so we can't
-    // just check our own _root — typing in the animation step Time/Delay fields would otherwise still
-    // move the gizmo. We only pay the panel scan on the frame an arrow key actually goes down.
+    // Is the user editing any of the mod's text fields right now? The mod runs two independent UI
+    // Toolkit panels (this window and the animation editor), each with its own focusController, so we
+    // scan every live panel. We walk UP from the focused element because focus can land on a
+    // TextField's inner input child rather than the TextField itself — an `is TextField` check on the
+    // focused element alone would miss that and treat typing as not-editing.
+    private static bool IsEditingText()
+    {
+        foreach (var doc in FindObjectsOfType<UIDocument>())
+        {
+            var element = doc.rootVisualElement?.panel?.focusController?.focusedElement as VisualElement;
+            while (element != null)
+            {
+                if (element is TextField)
+                    return true;
+                element = element.parent;
+            }
+        }
+
+        return false;
+    }
+
+    // Arrow-key nudge of the gizmo by the grid step (Shift = vertical). Only reached while the Alt
+    // nudge modifier is held AND no text field is focused — Update gates both this and the camera
+    // freeze on !IsEditingText(), so while you're typing the arrows stay entirely with the field
+    // (matching vanilla Liftoff: arrows edit text and don't move the avatar) and the mod touches
+    // neither the gizmo nor the fly-camera.
     private void NudgeGizmo()
     {
         var step = Shared.PlacementUtils.GridRound > 0 ? Shared.PlacementUtils.GridRound : 1f;
@@ -662,11 +682,6 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
         if (delta == Vector3.zero)
             return;
-
-        // Any live UI Toolkit panel editing text? Then the arrows belong to that field, not the gizmo.
-        foreach (var doc in FindObjectsOfType<UIDocument>())
-            if (doc.rootVisualElement?.panel?.focusController?.focusedElement is TextField)
-                return;
 
         var gizmo = GameObject.Find("TrackEditorGizmo");
         if (gizmo == null)
@@ -697,7 +712,12 @@ internal class PlacementUtilsWindow : MonoBehaviour
         // intercept), so pressing arrows used to move the gizmo AND the avatar at once. Now the nudge
         // only fires while Alt is held, and while Alt is held we freeze the fly-camera so the arrows
         // move the gizmo only. Plain arrows keep flying the avatar for creators who navigate that way.
-        var nudgeHeld = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+        //
+        // Crucially we bail entirely while a text field is focused: the freeze disables the avatar's
+        // own controller, which is what vanilla Liftoff relies on to keep arrows in the field (not
+        // moving the avatar) while typing. Freezing it there broke that — arrows leaked to the avatar
+        // and kicked focus out of the field (honk). Gating on !IsEditingText() leaves typing untouched.
+        var nudgeHeld = (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)) && !IsEditingText();
         UpdateNudgeCameraFreeze(nudgeHeld);
         if (nudgeHeld)
             NudgeGizmo();

@@ -35,6 +35,17 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.3.3
+
+Follow-up fix to the 1.3.2 hold-Alt nudge.
+
+- **Arrow keys behave normally again while typing in a field.** In 1.3.2 the fly-camera freeze engaged
+  whenever **Alt** was held — including while you were editing a text field. Freezing disables the
+  avatar's controller, which is what vanilla Liftoff relies on to keep arrow keys inside a focused
+  field, so with Alt held an arrow key could move the avatar and kick focus out of the field (thanks
+  Honk). The mod now does nothing with the arrows while any text field is focused — no nudge, no
+  freeze — so typing is pure vanilla again. Nudging outside fields (**Alt + arrows**) is unchanged.
+
 ### New in 1.3.2
 
 Two more editor fixes from Honk's playtest.
@@ -363,7 +374,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.3.2.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.3.3.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`
