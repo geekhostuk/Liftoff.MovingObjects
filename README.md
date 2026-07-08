@@ -35,6 +35,23 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.3.2
+
+Two more editor fixes from Honk's playtest.
+
+- **Arrow-key nudge no longer flies your avatar too.** The editor fly-camera also moves on the arrow
+  keys (Unity binds them alongside WASD), so nudging the gizmo with the arrows moved *you* at the same
+  time — a problem especially for creators who navigate with the arrow keys instead of WASD. Nudge is
+  now a **hold-Alt** action: **plain arrows fly the camera as normal**, and **Alt + arrows** nudge the
+  gizmo only (while Alt is held the fly-camera is frozen so the arrows can't move you). **Shift** still
+  means vertical, so **Alt + Shift + arrows** nudges up/down. Note: mouse-look pauses while Alt is held.
+- **Group edits no longer leave a "ghost" highlight behind.** After removing pieces from a group
+  (Shift+MMB), regrouping, duplicating and re-merging, a leftover highlight overlay could linger at old
+  positions (purely visual — it cleared on reload / "fly track → return to builder"). Selection
+  teardown now also sweeps highlight clones/markers whose carrier object had been deactivated, which it
+  previously skipped. (The duplicate/copy/mirror/stamp path was already clean — it spawns from the game
+  prefab, so it never copied overlay children.)
+
 ### New in 1.3.1
 
 Bugfix release on top of the stable 1.3.0 line — five small editor fixes/quality-of-life tweaks
@@ -346,7 +363,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.3.1.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.3.2.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`

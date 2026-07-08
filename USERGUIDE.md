@@ -112,7 +112,7 @@ A floating panel for map-wide tools (grid, selection, stats, spawning). Toggle i
 | **Ctrl+G** | Group / ungroup the current multi-selection (Enhanced editor on) |
 | **Middle-click** | Add/remove an object to the multi-selection (Enhanced editor on; nothing else selected) |
 | **Shift + Middle-click** | Edit group membership: add a loose object to the selected group, remove a current member, or seed a new group from a lone selection (Enhanced editor on) |
-| **Arrow keys** | Nudge the gizmo by the Alignment grid step (**Shift** = vertical); suppressed while typing in a field |
+| **Alt + Arrow keys** | Nudge the gizmo by the Alignment grid step (**Shift** = vertical). Hold **Alt** to nudge — it freezes the fly-camera so the arrows move the gizmo, not you. Plain arrows still fly the avatar. Suppressed while typing in a field |
 
 F5 and F9 also have toolbar buttons in the Placement utils window; a pink (grouped) selection
 counts as **one** selection, so both hotkeys act on the whole group.
@@ -283,7 +283,9 @@ All of these live in the **Placement utils** window (F2).
 - **Placement grid** (drag grid) — grid size applied while dragging items. **Default 0.0 = off.**
 - **Pos X/Y/Z**, **Rot X/Y/Z** — type exact transform values for the selected gizmo; they also
   track the gizmo live.
-- **Arrow keys** — nudge the gizmo by the Alignment grid step (**Shift** = up/down).
+- **Alt + Arrow keys** — nudge the gizmo by the Alignment grid step (**Shift** = up/down). You must
+  hold **Alt**: while it's held the editor fly-camera is frozen so the arrows only move the gizmo, not
+  your avatar. Release Alt and the arrows fly the camera as normal.
 
 ### Multi-selection (used by all the copy/mirror/stamp tools)
 With **Enhanced editor** on and nothing selected in the normal editor, **middle-click** objects to

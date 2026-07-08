@@ -579,7 +579,68 @@ internal class PlacementUtilsWindow : MonoBehaviour
         field.SetValueWithoutNotify(GuiUtils.FloatToString(value));
     }
 
-    // Arrow-key nudge of the gizmo by the grid step (Shift = vertical). Suppressed while a text
+    // Freeze/thaw the editor fly-camera while the nudge modifier (Alt) is held, so the arrow keys
+    // move the gizmo without also flying the avatar. We can't swallow the arrow input (the game reads
+    // it through Unity's shared movement axes), so we hold the avatar body still: disable its mover
+    // (LiftoffFirstPersonController) and the editor camera wrapper (which would otherwise re-enable
+    // physics), zero and freeze its rigidbody, and restore all of that on release. Mouse-look pauses
+    // while held, which is harmless during a nudge. Everything is captured on the Alt-press edge and
+    // null-guarded, so a torn-down avatar just leaves the freeze inert.
+    private bool _nudgeFrozen;
+    private Behaviour _frozenMover;
+    private Behaviour _frozenCameraWrapper;
+    private Rigidbody _frozenRb;
+    private bool _frozenRbPrevKinematic;
+
+    private void UpdateNudgeCameraFreeze(bool freeze)
+    {
+        if (freeze == _nudgeFrozen)
+            return;
+
+        if (freeze)
+        {
+            var mover = FindObjectOfType<LiftoffFirstPersonController>();
+            if (mover == null)
+                return;
+
+            _frozenMover = mover;
+            _frozenCameraWrapper = FindObjectOfType<EditorCameraFirstPersonController>();
+            _frozenRb = mover.GetComponent<Rigidbody>();
+            if (_frozenRb != null)
+            {
+                _frozenRbPrevKinematic = _frozenRb.isKinematic;
+                _frozenRb.velocity = Vector3.zero;
+                _frozenRb.angularVelocity = Vector3.zero;
+                _frozenRb.isKinematic = true;
+            }
+            if (_frozenCameraWrapper != null)
+                _frozenCameraWrapper.enabled = false;
+            _frozenMover.enabled = false;
+            _nudgeFrozen = true;
+        }
+        else
+        {
+            if (_frozenMover != null)
+                _frozenMover.enabled = true;
+            if (_frozenCameraWrapper != null)
+                _frozenCameraWrapper.enabled = true;
+            if (_frozenRb != null)
+                _frozenRb.isKinematic = _frozenRbPrevKinematic;
+            _frozenMover = null;
+            _frozenCameraWrapper = null;
+            _frozenRb = null;
+            _nudgeFrozen = false;
+        }
+    }
+
+    private void OnDisable()
+    {
+        // Don't leave the avatar frozen if this window is torn down mid-nudge.
+        UpdateNudgeCameraFreeze(false);
+    }
+
+    // Arrow-key nudge of the gizmo by the grid step (Shift = vertical), active only while the Alt
+    // nudge modifier is held (see Update / UpdateNudgeCameraFreeze). Also suppressed while a text
     // field is focused so the arrows edit text instead. The mod runs two independent UI Toolkit
     // panels (this window and the animation editor), each with its own focusController, so we can't
     // just check our own _root — typing in the animation step Time/Delay fields would otherwise still
@@ -630,7 +691,16 @@ internal class PlacementUtilsWindow : MonoBehaviour
             DeleteSelection();
 
         RefreshTransformFields();
-        NudgeGizmo();
+
+        // Arrow-key gizmo nudge is a "hold Alt" mode. The editor fly-camera also moves on the arrow
+        // keys (Unity aliases them with WASD through its shared movement axes, which the mod can't
+        // intercept), so pressing arrows used to move the gizmo AND the avatar at once. Now the nudge
+        // only fires while Alt is held, and while Alt is held we freeze the fly-camera so the arrows
+        // move the gizmo only. Plain arrows keep flying the avatar for creators who navigate that way.
+        var nudgeHeld = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+        UpdateNudgeCameraFreeze(nudgeHeld);
+        if (nudgeHeld)
+            NudgeGizmo();
 
         if (!Shared.PlacementUtils.EnchantedEditor)
             return;
@@ -714,7 +784,12 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
     private void DeselectAll()
     {
-        foreach (var info in FindObjectsOfType<GroupSelectionInfo>())
+        // Include inactive (the `true`): a highlight clone / selection marker whose carrier got
+        // deactivated — e.g. a group member hidden during a preview, or a clone left parented under an
+        // object that a group edit deactivated — is skipped by the default active-only search, so it
+        // survives teardown and leaves a "ghost" overlay lingering until the next reload. Sweeping
+        // inactive carriers too destroys those leftovers.
+        foreach (var info in FindObjectsOfType<GroupSelectionInfo>(true))
             Destroy(info.gameObject);
     }
 
@@ -887,7 +962,11 @@ internal class PlacementUtilsWindow : MonoBehaviour
         }
 
         var selectedObject = trackItemFlag.gameObject;
-        var existsGroupInfo = selectedObject.GetComponentInChildren<GroupSelectionInfo>();
+        // Include inactive (the `true`): if the existing marker sits on a deactivated carrier the
+        // default search misses it, so this toggle would stack a second highlight on top instead of
+        // removing the first — leaving a duplicate overlay behind. Matching inactive markers too keeps
+        // the middle-click toggle a true toggle.
+        var existsGroupInfo = selectedObject.GetComponentInChildren<GroupSelectionInfo>(true);
         if (existsGroupInfo != null)
         {
             Destroy(existsGroupInfo.gameObject);
