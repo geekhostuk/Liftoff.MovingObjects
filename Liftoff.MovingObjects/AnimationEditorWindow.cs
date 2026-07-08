@@ -491,6 +491,8 @@ internal class AnimationEditorWindow : MonoBehaviour
         _panelScroll = new ScrollView(ScrollViewMode.Vertical);
         // Leave headroom for the panel's top offset (UpdateMenuPos) so the capped panel stays on-screen.
         _panelScroll.style.maxHeight = new StyleLength(new Length(85, LengthUnit.Percent));
+        // Brisker wheel scroll for the whole-panel overflow too (default 18px/notch is glacial).
+        _panelScroll.mouseWheelScrollSize = 60f;
 
         foreach (var child in container.Children().ToList())
             _panelScroll.Add(child);
@@ -695,6 +697,10 @@ internal class AnimationEditorWindow : MonoBehaviour
                 animationPlay.text = _tempAnimationObject == null ? PlayButtonText : StopButtonText;
 
                 var stepsContainer = _root.Q<ScrollView>("animation-steps");
+                // Default wheel step is a tiny 18px/notch (honk: "scrolling is per pixel and takes
+                // forever"). Bump it to roughly a full step row per notch. Set in code because the
+                // UXML attribute lives in the baked bundle we can't rebuild (see ideas.md).
+                stepsContainer.mouseWheelScrollSize = 60f;
                 stepsContainer.Clear();
                 for (var i = 0; i < steps.Count; i++)
                     AddStepElement(stepsContainer, steps[i], i);
@@ -755,16 +761,19 @@ internal class AnimationEditorWindow : MonoBehaviour
         GuiUtils.ConvertToFloatField(item.Q<TextField>("time"), f => step.time = f, step.time);
         GuiUtils.ConvertToFloatField(item.Q<TextField>("delay"), f => step.delay = f, step.delay);
 
-        item.Q<Button>("delete").clicked += () =>
+        // Code-added row editing (the template only had a delete button): re-capture the pose from
+        // the live gizmo, reorder, and insert — so a typo no longer means deleting and re-capturing
+        // everything after it. All five buttons go on ONE horizontal row (honk: the stacked buttons
+        // took up too much vertical space) — the four new buttons used to be added straight onto the
+        // TemplateContainer, which is a column, so they stacked vertically under the row.
+        var index = i;
+
+        var deleteButton = item.Q<Button>("delete");
+        deleteButton.clicked += () =>
         {
             steps.Remove(step);
             RefreshGui();
         };
-
-        // Code-added row editing (the template only had a delete button): re-capture the pose from
-        // the live gizmo, reorder, and insert — so a typo no longer means deleting and re-capturing
-        // everything after it.
-        var index = i;
 
         var updateButton = new Button(() =>
         {
@@ -772,7 +781,6 @@ internal class AnimationEditorWindow : MonoBehaviour
             step.rotation = new SerializableVector3(_item.transform.rotation.eulerAngles);
             RefreshGui();
         }) { text = "Update", focusable = false };
-        item.Add(updateButton);
 
         var upButton = new Button(() =>
         {
@@ -781,7 +789,6 @@ internal class AnimationEditorWindow : MonoBehaviour
             (steps[index], steps[index - 1]) = (steps[index - 1], steps[index]);
             RefreshGui();
         }) { text = "↑", focusable = false };
-        item.Add(upButton);
 
         var downButton = new Button(() =>
         {
@@ -790,7 +797,6 @@ internal class AnimationEditorWindow : MonoBehaviour
             (steps[index], steps[index + 1]) = (steps[index + 1], steps[index]);
             RefreshGui();
         }) { text = "↓", focusable = false };
-        item.Add(downButton);
 
         var insertButton = new Button(() =>
         {
@@ -803,7 +809,27 @@ internal class AnimationEditorWindow : MonoBehaviour
             });
             RefreshGui();
         }) { text = "+", focusable = false };
-        item.Add(insertButton);
+
+        // One compact horizontal row. Add() reparents the template's Delete button out of its column
+        // into this row. Padding/font are overridden per-button here because the baked USS bundle
+        // can't be rebuilt (see ideas.md) and its default Button padding (6px) inflates row height.
+        var buttonRow = new VisualElement();
+        buttonRow.style.flexDirection = FlexDirection.Row;
+        buttonRow.style.justifyContent = Justify.FlexEnd;
+        foreach (var button in new[] { deleteButton, updateButton, upButton, downButton, insertButton })
+        {
+            button.style.flexGrow = 1;
+            button.style.fontSize = 8;
+            button.style.paddingTop = 2;
+            button.style.paddingBottom = 2;
+            button.style.paddingLeft = 4;
+            button.style.paddingRight = 4;
+            button.style.marginLeft = 1;
+            button.style.marginRight = 1;
+            buttonRow.Add(button);
+        }
+
+        item.Add(buttonRow);
 
         stepsContainer.Add(item);
     }

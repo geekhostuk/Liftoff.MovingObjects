@@ -35,6 +35,32 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.3.1
+
+Bugfix release on top of the stable 1.3.0 line — five small editor fixes/quality-of-life tweaks
+from Honk's playtest feedback. No changes to flight-time behaviour or the save format.
+
+- **Arrow-key nudge no longer fires while you're typing.** Nudging the gizmo with the arrow keys is
+  handy, but the keys were also moving the selected object while you were editing a text field — e.g.
+  an animation step's Time/Delay — so a value edit could teleport the object (thanks Honk). The mod
+  runs two independent editor panels; the guard only watched one, so typing in the *other* still
+  nudged. Arrows are now suppressed whenever any editor text field has focus.
+- **Grouped objects show their pink highlight immediately.** Selecting a group only tinted the
+  members you'd already moused over — the magenta highlight is cloned from the game's hover overlay,
+  which the game builds *lazily* on first hover, so never-hovered members stayed uncoloured until
+  touched. The mod now forces that overlay to be built up front, so the whole group lights up on
+  selection (this also makes **Select all** show magenta on freshly loaded blocks). Grouping itself
+  was always correct; this was purely cosmetic.
+- **Scaling a grouped object no longer drags the rest of the group around.** Resizing a scalable
+  block that belonged to a selected group made every *other* member slide toward or away from it
+  (their sizes didn't change — only their spacing), which quietly shifted the group (thanks Honk).
+  Group-follow is now rigid: moving or rotating the group anchor still moves the whole group together,
+  but scaling a member is a purely local change.
+- **Animation step buttons are on one row.** The per-step buttons (Delete / Update / ↑ / ↓ / +) used
+  to stack vertically and ate a lot of height; they're now a single compact row per step.
+- **Faster step-list scrolling.** The animation step list (and the whole editor panel) scrolled a
+  tiny amount per mouse-wheel notch; the wheel step is now much larger.
+
 ### New in 1.3.0
 
 First **stable** release of the moving-objects feature line. It promotes the work that shipped
@@ -320,7 +346,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.3.0.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.3.1.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`
