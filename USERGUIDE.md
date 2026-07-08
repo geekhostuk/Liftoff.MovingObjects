@@ -4,11 +4,14 @@ This guide covers every feature of the mod and how to use it, for **track author
 want to *fly* maps that use moving objects, you just need the mod installed (see
 [Installation](#installation)) — everything below is for building.
 
-> **Beta note (v1.2.11).** Every feature compiles against the current game and is wired end-to-end,
-> and the core animation/physics/trigger paths have been playtested in-game. A few of the newest
-> runtime paths and item-spawn features (Select-all, Duplicate/Array/Copy-Paste/Mirror/Stamps,
-> sound-on-trigger, hazard-on-contact, experimental spectator sync) are guarded so a wrong assumption
-> fails gracefully, but confirm them in-game where noted. Please report anything that misbehaves.
+> **Status (v1.3.2).** This is the stable 1.3.x line: the core animation / physics / trigger paths and
+> the editor/item-spawn features (Select-all, Duplicate/Array/Copy-Paste/Mirror/Stamps, grouping,
+> sound-on-trigger, hazard-on-contact) are confirmed working in-game. The most recent editor fixes
+> (v1.3.1–v1.3.2 — group highlighting, rigid group scaling, one-row step buttons, faster scrolling, the
+> hold-**Alt** gizmo nudge, and the ghost-highlight cleanup) are being confirmed in playtest; the
+> hold-Alt camera freeze in particular depends on the current Liftoff build, so it fails gracefully if
+> anything changes. The experimental spectator sync is off by default and version-specific. Please
+> report anything that misbehaves.
 
 ---
 
@@ -713,4 +716,5 @@ Two tools in the Placement utils window help you catch problems before flying:
 ---
 
 *Credit for the original mod goes to [ps-hek](https://github.com/ps-hek/Liftoff.MovingObjects);
-this fork keeps it working against current Liftoff builds and adds the v1.2.x feature set.*
+this fork keeps it working against current Liftoff builds and adds the moving-objects feature set
+(the v1.2.x–v1.3.x work).*
