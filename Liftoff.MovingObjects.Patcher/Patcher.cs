@@ -172,6 +172,17 @@ namespace Liftoff.MovingObjects.Patcher
             AddSerializableField(assembly, trackBlueprintType, "mo_triggerOptions", triggerType);
             AddSerializableField(assembly, trackBlueprintType, "mo_groupId",
                 assembly.MainModule.ImportReference(typeof(string)));
+            // Minimum MovingObjects version required to play this item correctly. Stamped on save
+            // (see Plugin's save hook); read at flight time to refuse animating a track authored
+            // with a newer, potentially breaking mod build than the one installed.
+            AddSerializableField(assembly, trackBlueprintType, "mo_minModVersion",
+                assembly.MainModule.ImportReference(typeof(string)));
+            // Seconds to keep a Show-Text trigger's message on screen. 0 = use the game's default
+            // (~1s) display. Read by the OnDroneEnter patch, which renders the message itself for
+            // this duration (see ShowTextOverlay). Additive/non-breaking: an older mod ignores this
+            // and falls back to the default display.
+            AddSerializableField(assembly, trackBlueprintType, "mo_textDisplayTime",
+                assembly.MainModule.ImportReference(typeof(float)));
         }
     }
 }
