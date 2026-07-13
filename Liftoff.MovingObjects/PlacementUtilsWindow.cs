@@ -53,6 +53,8 @@ internal class PlacementUtilsWindow : MonoBehaviour
     private TextField _stampNameField;
     private Button _saveStampButton;
     private Button _insertStampButton;
+    private Button _undoButton;
+    private Button _redoButton;
     private string _stampName = "stamp";
 
     public Assets assets;
@@ -273,6 +275,12 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
         _insertStampButton = new Button(InsertStamp) { text = "Insert stamp", focusable = false };
         container.Add(_insertStampButton);
+
+        _undoButton = new Button(UndoHistory.Undo) { text = "Undo (Ctrl+Z)", focusable = false };
+        container.Add(_undoButton);
+
+        _redoButton = new Button(UndoHistory.Redo) { text = "Redo (Ctrl+Y)", focusable = false };
+        container.Add(_redoButton);
     }
 
     private static Vector3 GizmoPosition()
@@ -354,8 +362,9 @@ internal class PlacementUtilsWindow : MonoBehaviour
         // Paste at the gizmo, as one fresh group when it's more than one item — the same rule stamp
         // uses, so copying an ungrouped multi-selection now comes back grouped just like a stamp does.
         var items = Shared.ItemClipboard.items;
-        ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition(),
-            Shared.PlacementUtils.GridRound, FreshGroupId(items));
+        using (UndoHistory.Transaction("Paste"))
+            ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition(),
+                Shared.PlacementUtils.GridRound, FreshGroupId(items));
         Shared.Editor.RequestRefreshGui();
     }
 
@@ -371,7 +380,8 @@ internal class PlacementUtilsWindow : MonoBehaviour
             return;
 
         var centroid = ItemSpawner.Centroid(items);
-        ItemSpawner.Paste(items, centroid, centroid, 0f, FreshGroupId(items));
+        using (UndoHistory.Transaction("Duplicate"))
+            ItemSpawner.Paste(items, centroid, centroid, 0f, FreshGroupId(items));
         Shared.Editor.RequestRefreshGui();
     }
 
@@ -396,8 +406,9 @@ internal class PlacementUtilsWindow : MonoBehaviour
         DeselectAll();
         _selectedItem = null;
 
-        foreach (var flag in flags)
-            ItemSpawner.RemoveItem(flag);
+        using (UndoHistory.Transaction("Delete"))
+            foreach (var flag in flags)
+                ItemSpawner.RemoveItem(flag);
 
         // The game still had the deleted item selected in gizmo mode, which would leave its transform
         // gizmo floating with nothing attached — drop back to place mode so the game clears it.
@@ -418,7 +429,8 @@ internal class PlacementUtilsWindow : MonoBehaviour
             return;
 
         // Mirror across the vertical plane through the gizmo (left/right).
-        ItemSpawner.Mirror(items, GizmoPosition(), Vector3.right);
+        using (UndoHistory.Transaction("Mirror"))
+            ItemSpawner.Mirror(items, GizmoPosition(), Vector3.right);
         Shared.Editor.RequestRefreshGui();
     }
 
@@ -451,8 +463,9 @@ internal class PlacementUtilsWindow : MonoBehaviour
         // is a reusable prefab: insert it as one cohesive fresh group (see FreshGroupId) so it can be
         // nudged into place and ungrouped with Ctrl+G as a unit.
         var items = blueprints.Select(PlacedItem.FromBlueprint).ToList();
-        ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition(),
-            Shared.PlacementUtils.GridRound, FreshGroupId(items));
+        using (UndoHistory.Transaction("Insert stamp"))
+            ItemSpawner.Paste(items, ItemSpawner.Centroid(items), GizmoPosition(),
+                Shared.PlacementUtils.GridRound, FreshGroupId(items));
         Shared.Editor.RequestRefreshGui();
     }
 
@@ -465,7 +478,8 @@ internal class PlacementUtilsWindow : MonoBehaviour
             return;
 
         var step = Shared.PlacementUtils.GridRound > 0 ? Shared.PlacementUtils.GridRound : 1f;
-        ItemSpawner.Duplicate(_selectedItem.blueprint, new Vector3(step, 0f, 0f));
+        using (UndoHistory.Transaction("Duplicate"))
+            ItemSpawner.Duplicate(_selectedItem.blueprint, new Vector3(step, 0f, 0f));
         Shared.Editor.RequestRefreshGui();
     }
 
@@ -475,7 +489,8 @@ internal class PlacementUtilsWindow : MonoBehaviour
             return;
 
         var step = Shared.PlacementUtils.GridRound > 0 ? Shared.PlacementUtils.GridRound : 1f;
-        ItemSpawner.Array(_selectedItem.blueprint, _arrayCount, new Vector3(step, 0f, 0f));
+        using (UndoHistory.Transaction("Array"))
+            ItemSpawner.Array(_selectedItem.blueprint, _arrayCount, new Vector3(step, 0f, 0f));
         Shared.Editor.RequestRefreshGui();
     }
 
@@ -554,6 +569,8 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
     private static void SetGizmo(Action<Transform> apply)
     {
+        // Numeric-field moves are captured by UndoHistory.WatchSelection (which polls the selected
+        // item's transform each frame), so no explicit hook is needed here.
         var gizmo = GameObject.Find("TrackEditorGizmo");
         if (gizmo != null)
             apply(gizmo.transform);
@@ -586,8 +603,38 @@ internal class PlacementUtilsWindow : MonoBehaviour
         field.SetValueWithoutNotify(GuiUtils.FloatToString(value));
     }
 
+    // True while any of the mod's text fields has keyboard focus — used to keep the Ctrl+Z/Y undo
+    // hotkeys from stealing a field's own text editing (same concern as GuiUtils.KeepArrowsInTextFields).
+    private bool IsAnyTextFieldFocused()
+    {
+        return _root?.panel?.focusController?.focusedElement is TextField;
+    }
+
     private void Update()
     {
+        // Commit any native single-item add/delete captured this frame, then watch the selected item
+        // for movement (gizmo drag / numeric fields / group move). First thing each frame so history
+        // is up to date before we read hotkeys.
+        UndoHistory.FlushPending();
+        UndoHistory.WatchSelection(_selectedItem?.gameObject != null ? _selectedItem.gameObject.transform : null);
+
+        // Ctrl+Z / Ctrl+Y — above the EnchantedEditor gate so undo works in vanilla mode too. Guarded
+        // against text-field focus so it doesn't hijack the field's own text editing (see 1.3.5).
+        if (!IsAnyTextFieldFocused() && Input.GetKey(KeyCode.LeftControl))
+        {
+            if (Input.GetKeyDown(KeyCode.Z))
+            {
+                UndoHistory.Undo();
+                return;
+            }
+
+            if (Input.GetKeyDown(KeyCode.Y))
+            {
+                UndoHistory.Redo();
+                return;
+            }
+        }
+
         if (Input.GetKeyDown(KeyCode.F1))
             RoundGizmoLocation();
         else if (Input.GetKeyDown(KeyCode.F3))
@@ -666,17 +713,29 @@ internal class PlacementUtilsWindow : MonoBehaviour
             return;
         if (_selectedItem == null)
         {
-            var groupId = Guid.NewGuid().ToString("D");
-            foreach (var info in FindObjectsOfType<GroupSelectionInfo>())
-                info.trackBlueprint.mo_groupId = groupId;
+            // Group the loose multi-selection: capture the members' flags for undo, then stamp a new id.
+            var flags = FindObjectsOfType<GroupSelectionInfo>()
+                .Select(info => EditorUtils.FindFlagByBlueprint(info.trackBlueprint));
+            UndoHistory.RecordGroupChange(flags, () =>
+            {
+                var groupId = Guid.NewGuid().ToString("D");
+                foreach (var info in FindObjectsOfType<GroupSelectionInfo>())
+                    info.trackBlueprint.mo_groupId = groupId;
+            });
         }
         else if (!string.IsNullOrEmpty(_selectedItem.blueprint.mo_groupId))
         {
-            foreach (var itemInfo in FindItemsByGroupId(_selectedItem.blueprint.mo_groupId))
+            var groupId = _selectedItem.blueprint.mo_groupId;
+            var flags = FindItemsByGroupId(groupId)
+                .Select(info => EditorUtils.FindFlagByBlueprint(info.blueprint));
+            UndoHistory.RecordGroupChange(flags, () =>
             {
-                itemInfo.blueprint.mo_groupId = null;
-                itemInfo.gameObject.transform.parent = null;
-            }
+                foreach (var itemInfo in FindItemsByGroupId(groupId))
+                {
+                    itemInfo.blueprint.mo_groupId = null;
+                    itemInfo.gameObject.transform.parent = null;
+                }
+            });
         }
 
         DeselectAll();
@@ -909,22 +968,28 @@ internal class PlacementUtilsWindow : MonoBehaviour
         if (clickedBlueprint == null || ReferenceEquals(clickedBlueprint, _selectedItem.blueprint))
             return;
 
-        var groupId = _selectedItem.blueprint.mo_groupId;
-        if (string.IsNullOrEmpty(groupId))
+        // Both the anchor (which may get a fresh group id) and the clicked item can change group — undo
+        // captures both.
+        var anchorFlag = EditorUtils.FindFlagByBlueprint(_selectedItem.blueprint);
+        UndoHistory.RecordGroupChange(new[] { anchorFlag, trackItemFlag }, () =>
         {
-            groupId = Guid.NewGuid().ToString("D");
-            _selectedItem.blueprint.mo_groupId = groupId;
-        }
+            var groupId = _selectedItem.blueprint.mo_groupId;
+            if (string.IsNullOrEmpty(groupId))
+            {
+                groupId = Guid.NewGuid().ToString("D");
+                _selectedItem.blueprint.mo_groupId = groupId;
+            }
 
-        if (string.Equals(clickedBlueprint.mo_groupId, groupId))
-        {
-            clickedBlueprint.mo_groupId = null;
-            trackItemFlag.gameObject.transform.parent = null;
-        }
-        else
-        {
-            clickedBlueprint.mo_groupId = groupId;
-        }
+            if (string.Equals(clickedBlueprint.mo_groupId, groupId))
+            {
+                clickedBlueprint.mo_groupId = null;
+                trackItemFlag.gameObject.transform.parent = null;
+            }
+            else
+            {
+                clickedBlueprint.mo_groupId = groupId;
+            }
+        });
 
         OnItemSelected(_selectedItem);
         Shared.Editor.RequestRefreshGui();

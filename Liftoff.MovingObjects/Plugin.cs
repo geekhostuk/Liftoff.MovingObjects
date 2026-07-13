@@ -129,6 +129,10 @@ public sealed class Plugin : BaseUnityPlugin
     [HarmonyPatch(typeof(TrackEditorGUI), "Start")]
     private static void OnTrackEditorGuiStart(TrackEditorGUI __instance)
     {
+        // Fresh editor session: clear undo history and arm the post-load suppression window so the
+        // items the loaded track spawns don't seed the history.
+        UndoHistory.ResetForNewSession();
+
         var trackMenu = ReflectionUtils.GetPrivateFieldValue<TrackEditorMenuManager>(__instance, "trackMenu");
         var trackBuilderPanel =
             ReflectionUtils.GetPrivateFieldValue<TrackEditorEditWindow>(trackMenu, "trackBuilderPanel");
@@ -255,6 +259,29 @@ public sealed class Plugin : BaseUnityPlugin
     {
         if (!__result)
             __result = true;
+    }
+
+    // Add chokepoint: every new track item — native palette placement AND the mod's own spawns
+    // (ItemSpawner.SpawnFromBlueprint calls this to register the item into Track.blueprints) — passes
+    // through here. Recording adds here captures both uniformly. __0 is the obfuscated item type,
+    // bound positionally as the Component it derives from. Guarded: never break placement.
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(TrackEditor), "AssignIDToTrackItem")]
+    private static void OnTrackItemAssignedId(Component __0)
+    {
+        try { UndoHistory.NotifyAdded(__0); }
+        catch (System.Exception ex) { Log.LogWarning($"Undo add-capture failed: {ex.Message}"); }
+    }
+
+    // Remove chokepoint: the game's native erase and the mod's F9 delete both funnel through
+    // TrackEditor.RemoveTrackItem (see ItemSpawner.RemoveItem). This is a PREFIX so we snapshot the
+    // item before its GameObject is destroyed. Guarded: never break deletion.
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(TrackEditor), "RemoveTrackItem")]
+    private static void OnTrackItemRemoving(Component __0)
+    {
+        try { UndoHistory.NotifyRemoving(__0); }
+        catch (System.Exception ex) { Log.LogWarning($"Undo remove-capture failed: {ex.Message}"); }
     }
 
     [HarmonyPostfix]

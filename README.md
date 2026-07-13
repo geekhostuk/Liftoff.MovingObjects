@@ -35,6 +35,20 @@ This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects)
 
 If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
+### New in 1.3.8
+
+- **Undo / Redo in the track builder.** The editor finally has an undo stack: **Ctrl+Z** undoes and
+  **Ctrl+Y** redoes, with matching **Undo** / **Redo** buttons in the Placement utils window. It's
+  editor-wide — it covers moving an object (gizmo drag or the numeric transform fields), placing an
+  item from the palette, deleting, and every mod bulk action (paste, duplicate, array, mirror,
+  insert-stamp) and group/ungroup — and it works for the game's own native placement/delete/drag as
+  well as the mod's tools, because both funnel through the same add/remove chokepoints. A bulk action
+  (e.g. pasting a whole group) undoes as one step; a quick drag-then-nudge on the same object folds
+  into one step too. History holds the last 50 changes, is cleared each time you enter the editor,
+  and never touches flight time or the save format (an editor-only, non-breaking change — existing
+  tracks are unaffected). Per-object animation/trigger *config* edits in the detail pane aren't
+  undoable yet; that's a possible follow-up.
+
 ### New in 1.3.7
 
 Two additions, both non-breaking — existing tracks are unaffected.
@@ -421,7 +435,7 @@ A trigger could previously only **(re)start** an animation, and any object that 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.3.7.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+2. Download `Liftoff.MovingObjects-1.3.8.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`

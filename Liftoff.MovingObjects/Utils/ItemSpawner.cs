@@ -185,6 +185,25 @@ internal static class ItemSpawner
         blueprint.rotation = new SerializableVector3(item.transform.rotation.eulerAngles);
     }
 
+    // Re-create a single captured item EXACTLY as it was — same world transform, scale, MO config,
+    // and (crucially) the same group id. This is the undo/redo respawn primitive: unlike Paste, it
+    // does NOT remap the group id, because undoing a delete must restore the item into the very group
+    // it left, not a fresh one. Returns the spawned item component, or null on failure (guarded so an
+    // undo-of-delete simply doesn't reappear rather than corrupting the track).
+    public static Component SpawnExact(PlacedItem snapshot)
+    {
+        var item = SpawnFromBlueprint(CloneUtils.DeepClone(snapshot.blueprint));
+        if (item == null)
+            return null;
+
+        item.transform.SetPositionAndRotation(snapshot.position, snapshot.rotation);
+        if (snapshot.scale.HasValue)
+            item.transform.localScale = snapshot.scale.Value;
+
+        ApplyMoConfig(item, snapshot.blueprint, snapshot.blueprint.mo_groupId);
+        return item;
+    }
+
     // Array (8f): stamp N duplicates, each offset a further step from the source. Same primitive
     // as Duplicate with an offset pattern; mirror and multi-object paste layer on the same way.
     public static void Array(TrackBlueprint source, int count, Vector3 step)

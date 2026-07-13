@@ -96,6 +96,19 @@ A `triggerAction` option (`Restart`/`Stop`) lets a trigger halt a running animat
 - Files: `AnimationEditorWindow.cs`, `PlacementUtilsWindow.cs`, `Shared.cs`,
   `Utils/EditorUtils.cs`, `Utils/CloneUtils.cs`, `PathPreview.cs`, `TriggerLinkPreview.cs`.
 
+### ✅ Undo / Redo in the track builder — v1.3.8
+Editor-wide undo (`Ctrl+Z`) / redo (`Ctrl+Y`) plus toolbar buttons. Reversible edits are captured
+uniformly across native and mod operations by patching the two shared chokepoints —
+`TrackEditor.AssignIDToTrackItem` (add) and `TrackEditor.RemoveTrackItem` (remove) — plus the drag
+postfixes and numeric transform fields. Edits store deep-cloned `PlacedItem` snapshots keyed by a
+runtime-only `MoUndoId` marker (survives the object-identity churn of respawn-on-undo). Mod bulk ops
+are wrapped in transactions so each collapses to one entry; native single edits flush per frame;
+same-object moves coalesce. A post-load suppression window + large-burst heuristic keep opening a map
+from flooding the history. Depth 50; cleared on `TrackEditorGUI.Start`. Config-field edits (detail
+pane) are out of scope. Covers object add/delete/move/group only.
+- Files: `UndoHistory.cs`, `Utils/MoUndoId.cs`, `Utils/ItemSpawner.cs` (`SpawnExact`), `Plugin.cs`,
+  `PlacementUtilsWindow.cs`.
+
 ### ✅ Item spawning + duplicate/array/mirror/copy-paste/stamps — v1.2.0
 The mod can finally **instantiate a live track item from a `TrackBlueprint`** — the primitive
 that blocked every prior copy/paste attempt. The chain (all public, obfuscated types held via
