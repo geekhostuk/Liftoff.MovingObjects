@@ -97,6 +97,7 @@ internal class AnimationEditorWindow : MonoBehaviour
     private TextField _linearDragField;
     private TextField _angularDragField;
     private TextField _massField;
+    private TextField _textDisplayTimeField;
 
     public Assets assets;
 
@@ -267,6 +268,29 @@ internal class AnimationEditorWindow : MonoBehaviour
         _playSoundToggle = new Toggle("Play sound on trigger") { focusable = false };
         _playSoundToggle.RegisterValueChangedCallback(evt => trigger.playSoundOnTrigger = evt.newValue);
         targetSection.Add(_playSoundToggle);
+    }
+
+    // Code-added display-time field for Liftoff's native Show-Text trigger (the compiled UI bundle
+    // has no control for it). Lives in the always-present trigger-section and, like the other
+    // code-added controls, is guarded on its .parent so a visual-tree rebuild re-adds it without
+    // duplicating. Only shown for Show-Text items (see RefreshGui). 0 = the game's default ~1s flash;
+    // any positive value is honoured by the OnDroneEnter patch (see Plugin/ShowTextOverlay).
+    private void EnsureShowTextControls()
+    {
+        var section = _root.Q<VisualElement>("trigger-section");
+        if (section == null)
+            return;
+
+        if (_textDisplayTimeField != null && _textDisplayTimeField.parent == section)
+            return;
+
+        _textDisplayTimeField = new TextField("Text time (s), 0=default:") { maxLength = 16 };
+        GuiUtils.ConvertToFloatField(_textDisplayTimeField, f =>
+        {
+            if (_blueprint != null)
+                _blueprint.mo_textDisplayTime = f;
+        });
+        section.Add(_textDisplayTimeField);
     }
 
     // Same code-added pattern as EnsureTeleportControls, but for the Trigger action dropdown
@@ -583,6 +607,14 @@ internal class AnimationEditorWindow : MonoBehaviour
         EnsurePanelScroll();
         EnsureClipboardControls();
         _pasteConfigButton?.SetEnabled(Shared.Clipboard.HasData);
+
+        // Show-Text display-time field: only relevant for Liftoff's native Show-Text trigger, so it's
+        // hidden for every other item type.
+        EnsureShowTextControls();
+        var isShowText = _item != null && _item.GetComponent<TrackItemShowTextTrigger>() != null;
+        GuiUtils.SetVisible(_textDisplayTimeField, isShowText);
+        if (isShowText)
+            _textDisplayTimeField.SetValueWithoutNotify(GuiUtils.FloatToString(_blueprint.mo_textDisplayTime));
 
         var currentType = options == null ? Type.None : options.simulatePhysics ? Type.Physics : Type.Animation;
         _root.Q<DropdownField>("type").value = currentType.ToString();

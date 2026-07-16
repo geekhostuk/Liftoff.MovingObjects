@@ -107,6 +107,8 @@ A floating panel for map-wide tools (grid, selection, stats, spawning). Toggle i
 
 | Key | Action |
 |-----|--------|
+| **Ctrl+Z** | **Undo** the last editor change (move, place, delete, paste, duplicate, array, mirror, stamp, group) |
+| **Ctrl+Y** | **Redo** the change you just undid |
 | **F1** | Snap the gizmo to the **Alignment grid** (same as the **Align** button) |
 | **F2** | Show/hide the Placement utils window |
 | **F3** | Toggle no-clip on the editor fly-camera |
@@ -119,6 +121,15 @@ A floating panel for map-wide tools (grid, selection, stats, spawning). Toggle i
 
 F5 and F9 also have toolbar buttons in the Placement utils window; a pink (grouped) selection
 counts as **one** selection, so both hotkeys act on the whole group.
+
+**Undo / Redo** covers the whole builder — moving an object (gizmo drag or the numeric transform
+fields), placing an item from the palette, deleting, and every mod bulk action (paste, duplicate,
+array, mirror, insert-stamp) and group/ungroup — for both the mod's tools and the game's native
+placement. A bulk action (e.g. pasting a 12-piece group) undoes as **one** step. Ctrl+Z and Ctrl+Y
+also have **Undo** / **Redo** toolbar buttons in the Placement utils window. History holds the last
+50 changes and is cleared when you (re)enter the track editor. Note: undo does **not** cover
+animation/trigger *config* edits in the item detail pane — only object placement, transform, and
+grouping.
 
 ---
 

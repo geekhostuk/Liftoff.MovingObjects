@@ -17,6 +17,25 @@ public sealed class Plugin : BaseUnityPlugin
     private static readonly ManualLogSource Log =
         BepInEx.Logging.Logger.CreateLogSource($"{PluginInfo.PLUGIN_NAME}.{nameof(Plugin)}");
 
+    // Forward-compatibility gate. Tracks are stamped on save with the minimum mod version required
+    // to play them correctly (mo_minModVersion). At flight time we refuse to animate a track that
+    // needs a newer build than the one installed, so it fails as a clean "objects sit still — update
+    // your mod" state rather than a confusing half-working animation.
+    //
+    // MinCompatibleVersion is the value stamped into freshly-saved tracks. Bump it ONLY when a
+    // release changes/adds behaviour such that an older mod would mis-play a track authored with it;
+    // do NOT bump it for editor-only or bugfix releases. It is deliberately separate from (and lags)
+    // PLUGIN_VERSION so non-breaking version bumps don't needlessly block older mods.
+    //
+    // NOTE: this only protects builds that contain this gate code (this release onward). Mods already
+    // shipped without it will ignore the stamp and animate regardless — it cannot be applied
+    // retroactively.
+    internal static readonly System.Version MinCompatibleVersion = new System.Version("1.3.6");
+    private static readonly System.Version RunningVersion = new System.Version(PluginInfo.PLUGIN_VERSION);
+
+    // Guards the "track needs a newer mod" warning so it logs once per blocked track, not every reset.
+    private static System.Version _lastVersionBlockLogged;
+
     private static AssetBundle _assetBundle;
     private static AnimationEditorWindow.Assets _editorAssets;
     private static PlacementUtilsWindow.Assets _placementAssets;
@@ -110,6 +129,10 @@ public sealed class Plugin : BaseUnityPlugin
     [HarmonyPatch(typeof(TrackEditorGUI), "Start")]
     private static void OnTrackEditorGuiStart(TrackEditorGUI __instance)
     {
+        // Fresh editor session: clear undo history and arm the post-load suppression window so the
+        // items the loaded track spawns don't seed the history.
+        UndoHistory.ResetForNewSession();
+
         var trackMenu = ReflectionUtils.GetPrivateFieldValue<TrackEditorMenuManager>(__instance, "trackMenu");
         var trackBuilderPanel =
             ReflectionUtils.GetPrivateFieldValue<TrackEditorEditWindow>(trackMenu, "trackBuilderPanel");
@@ -125,6 +148,87 @@ public sealed class Plugin : BaseUnityPlugin
 
         var placementUtilsWindow = placementUtilsObj.AddComponent<PlacementUtilsWindow>();
         placementUtilsWindow.assets = _placementAssets;
+    }
+
+    // Stamp the required-mod-version onto every item that carries MovingObjects config, just before
+    // the game serializes the track to disk. This is the single chokepoint the Save button funnels
+    // through, so it covers all authoring paths (editor, copy/paste, array/mirror, stamp-insert). We
+    // stamp the live item blueprints (the same instances the game serializes) via the existing
+    // FindAllFlags/reflection path. A missing stamp is treated as "compatible" at load, so any path
+    // we somehow miss under-protects rather than falsely blocking.
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(TrackEditorMenuManager), "SaveTrack")]
+    private static void StampTrackVersionOnSave()
+    {
+        var version = MinCompatibleVersion.ToString();
+        foreach (var flag in EditorUtils.FindAllFlags())
+        {
+            var blueprint = ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(flag);
+            if (HasMoContent(blueprint))
+                blueprint.mo_minModVersion = version;
+        }
+    }
+
+    // A blueprint carries MovingObjects config if it has animation options/steps, trigger options,
+    // or a group id — mirrors the null-checks InjectPlayers uses.
+    private static bool HasMoContent(TrackBlueprint blueprint)
+    {
+        return blueprint != null
+               && (blueprint.mo_animationOptions != null
+                   || blueprint.mo_triggerOptions != null
+                   || blueprint.mo_animationSteps?.Count > 0
+                   || !string.IsNullOrEmpty(blueprint.mo_groupId));
+    }
+
+    // Highest mo_minModVersion stamped across the track's items, or null if none is stamped
+    // (older/un-stamped tracks — always treated as compatible). Unparseable stamps are ignored.
+    private static System.Version RequiredVersion(IEnumerable<Component> flags)
+    {
+        System.Version required = null;
+        foreach (var flag in flags)
+        {
+            var blueprint = ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(flag);
+            var stamp = blueprint?.mo_minModVersion;
+            if (string.IsNullOrEmpty(stamp) || !System.Version.TryParse(stamp, out var version))
+                continue;
+            if (required == null || version > required)
+                required = version;
+        }
+
+        return required;
+    }
+
+    // Customizable Show-Text display time. Liftoff's native show-text trigger flashes its message for
+    // a fixed ~1s with no exposed duration knob (the display is driven by an obfuscated runtime
+    // manager whose show method takes only the text). When an author sets mo_textDisplayTime > 0 we
+    // take over the display: render the same message ourselves for that duration (ShowTextOverlay) and
+    // skip the game's default show. Left at 0, the game's default behaviour is untouched. Patched by
+    // name only — there is a single OnDroneEnter overload, and its drone parameter is an obfuscated
+    // (unnameable) type. Wrapped defensively: on any failure we fall back to the game's own display.
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(TrackItemShowTextTrigger), "OnDroneEnter")]
+    private static bool ShowTextOnDroneEnter(TrackItemShowTextTrigger __instance)
+    {
+        try
+        {
+            var blueprint = ReflectionUtils.GetPrivateFieldValueByType<TrackBlueprint>(__instance);
+            var seconds = blueprint?.mo_textDisplayTime ?? 0f;
+            if (seconds <= 0f)
+                return true; // no custom duration → let the game show its default message
+
+            var action = ReflectionUtils.GetPrivateFieldValueByType<ShowTextTrackItemAction>(__instance);
+            var text = action?.displayText;
+            if (string.IsNullOrEmpty(text))
+                return true;
+
+            ShowTextOverlay.Instance.Show(text, seconds);
+            return false; // we rendered it ourselves; skip the game's default show
+        }
+        catch (System.Exception ex)
+        {
+            Log.LogWarning($"Show-Text custom duration failed, using game default: {ex.Message}");
+            return true;
+        }
     }
 
     // Override the Workshop preview image with a local preview.png when sharing a track.
@@ -155,6 +259,29 @@ public sealed class Plugin : BaseUnityPlugin
     {
         if (!__result)
             __result = true;
+    }
+
+    // Add chokepoint: every new track item — native palette placement AND the mod's own spawns
+    // (ItemSpawner.SpawnFromBlueprint calls this to register the item into Track.blueprints) — passes
+    // through here. Recording adds here captures both uniformly. __0 is the obfuscated item type,
+    // bound positionally as the Component it derives from. Guarded: never break placement.
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(TrackEditor), "AssignIDToTrackItem")]
+    private static void OnTrackItemAssignedId(Component __0)
+    {
+        try { UndoHistory.NotifyAdded(__0); }
+        catch (System.Exception ex) { Log.LogWarning($"Undo add-capture failed: {ex.Message}"); }
+    }
+
+    // Remove chokepoint: the game's native erase and the mod's F9 delete both funnel through
+    // TrackEditor.RemoveTrackItem (see ItemSpawner.RemoveItem). This is a PREFIX so we snapshot the
+    // item before its GameObject is destroyed. Guarded: never break deletion.
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(TrackEditor), "RemoveTrackItem")]
+    private static void OnTrackItemRemoving(Component __0)
+    {
+        try { UndoHistory.NotifyRemoving(__0); }
+        catch (System.Exception ex) { Log.LogWarning($"Undo remove-capture failed: {ex.Message}"); }
     }
 
     [HarmonyPostfix]
@@ -259,6 +386,26 @@ public sealed class Plugin : BaseUnityPlugin
         // so this is cheap on subsequent resets and only does real work when the
         // track has changed and new flag GameObjects are present.
         var flags = EditorUtils.FindAllFlags();
+
+        // Forward-compatibility gate: if this track was authored with a newer, potentially breaking
+        // mod build than the one installed, don't inject any players — leave every object static
+        // rather than mis-play a partial animation. Un-stamped/older tracks return null and run
+        // normally.
+        var required = RequiredVersion(flags);
+        if (required != null && RunningVersion < required)
+        {
+            if (!required.Equals(_lastVersionBlockLogged))
+            {
+                Log.LogWarning(
+                    $"This track needs {PluginInfo.PLUGIN_NAME} {required} or newer, but "
+                    + $"{PluginInfo.PLUGIN_VERSION} is installed — moving-object animation disabled. "
+                    + "Please update the mod.");
+                _lastVersionBlockLogged = required;
+            }
+            return;
+        }
+        _lastVersionBlockLogged = null;
+
         var groupRoots = ComputeGroupRoots(flags);
         GroupFlags(flags, groupRoots);
         InjectPlayers(flags, groupRoots);

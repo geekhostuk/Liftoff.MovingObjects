@@ -96,6 +96,19 @@ A `triggerAction` option (`Restart`/`Stop`) lets a trigger halt a running animat
 - Files: `AnimationEditorWindow.cs`, `PlacementUtilsWindow.cs`, `Shared.cs`,
   `Utils/EditorUtils.cs`, `Utils/CloneUtils.cs`, `PathPreview.cs`, `TriggerLinkPreview.cs`.
 
+### ✅ Undo / Redo in the track builder — v1.3.8
+Editor-wide undo (`Ctrl+Z`) / redo (`Ctrl+Y`) plus toolbar buttons. Reversible edits are captured
+uniformly across native and mod operations by patching the two shared chokepoints —
+`TrackEditor.AssignIDToTrackItem` (add) and `TrackEditor.RemoveTrackItem` (remove) — plus the drag
+postfixes and numeric transform fields. Edits store deep-cloned `PlacedItem` snapshots keyed by a
+runtime-only `MoUndoId` marker (survives the object-identity churn of respawn-on-undo). Mod bulk ops
+are wrapped in transactions so each collapses to one entry; native single edits flush per frame;
+same-object moves coalesce. A post-load suppression window + large-burst heuristic keep opening a map
+from flooding the history. Depth 50; cleared on `TrackEditorGUI.Start`. Config-field edits (detail
+pane) are out of scope. Covers object add/delete/move/group only.
+- Files: `UndoHistory.cs`, `Utils/MoUndoId.cs`, `Utils/ItemSpawner.cs` (`SpawnExact`), `Plugin.cs`,
+  `PlacementUtilsWindow.cs`.
+
 ### ✅ Item spawning + duplicate/array/mirror/copy-paste/stamps — v1.2.0
 The mod can finally **instantiate a live track item from a `TrackBlueprint`** — the primitive
 that blocked every prior copy/paste attempt. The chain (all public, obfuscated types held via
@@ -120,9 +133,66 @@ parameter — and the `Sprite` preview is overridden positionally with a local `
 
 ---
 
+## Open — physics objects as first-class participants (requested 2026-07-15, DerHonk83)
+
+Discovered in play: give an object physics and a low mass and you can shoot it around, and even
+pick it up with a drone. That makes a ball a plausible *game piece* rather than set dressing — but
+today only drones interact with checkpoints, trigger volumes and wind. These four entries are the
+gap between "a ball that rolls" and "basketball / pinball / rocket league".
+
+### Checkpoints triggered by physics objects
+Let a checkpoint register a physics object/group passing through it, not just a drone. Author-facing
+as a pair of opt-ins: a flag on the checkpoint ("physics objects may trigger this") and a flag on the
+physics tab ("this object/group can trigger checkpoints"), so neither side surprises the other.
+Unlocks scoring volumes — a hoop, a pinball target, a goal.
+- **Effort**: medium. The drone-only assumption is baked into the pass detection; needs a second
+  detection path plus the anti-tunneling treatment (a fast ball tunnels exactly like a fast drone).
+- **Files**: `Patcher.cs` (`MO_TriggerOptions`, `MO_AnimationOptions`), `TriggerBehavior.cs`,
+  `AnimationEditorWindow.cs`.
+- **Status**: open.
+
+### Trigger volumes triggered by physics objects
+Same opt-in as above, extended to the general trigger volumes rather than only checkpoints — so a
+ball can fire *any* authored trigger action (sound, teleport, start an animation). Should share one
+"who may trigger me" concept with the checkpoint entry rather than growing a second flag.
+- **Effort**: small once the checkpoint detection path exists — mostly the same code.
+- **Files**: `Patcher.cs`, `TriggerBehavior.cs`, `AnimationEditorWindow.cs`.
+- **Status**: open.
+
+### Wind / force volumes apply to physics objects
+`windEnabled` currently pushes only drones (`OnTriggerStay` against the drone body). Extend it to
+physics objects and groups, applying the force through the body's mass so a heavy crate and a light
+ball respond differently — `ForceMode.Force`/`Acceleration` already distinguishes this, and group
+bodies have a single root `Rigidbody`, so the compound mass is already correct.
+- **Effort**: small-to-medium. The force application is straightforward; the work is identifying
+  overlapping MO bodies rather than assuming the drone.
+- **Files**: `TriggerBehavior.cs`, `Player/PhysicsPlayer.cs`.
+- **Status**: open.
+
+### Sync a physics object between players ("sync between players" checkbox)
+The big one. A shared ball needs one authority (host) simulating and broadcasting pose, with other
+mod users applying it — everyone currently simulates their own copy, so the ball is solo-only today.
+Proposed authoring surface: a per-object/group **"sync between players"** checkbox on the physics tab.
+- **Effort**: large, and unlike everything else in this file it needs **transport we don't have** —
+  the mod has no networking layer, and the game's own netcode is in the obfuscated assembly. Worth
+  scoping against the existing always-on bot room / control backend (JesusMcTwos) before committing:
+  if that can relay pose, this becomes tractable; if not, it's a new networking subsystem.
+- **Open questions**: authority handover when the host leaves; interpolation/latency handling;
+  what happens for non-mod users in the room; whether ownership transfers to whoever last hit the ball.
+- **Files**: `Patcher.cs`, `Player/PhysicsPlayer.cs`, `Plugin.cs`, plus a new transport layer.
+- **Status**: open — **needs a design spike, not an implementation**.
+
+### Track concepts these unlock
+Author-side ideas from the same conversation, listed as motivation rather than work items: a
+drone-operated **pinball machine**; a **ski resort** with working cable cars and skiers on the slope
+(animation, already shippable today); a **basketball** game (needs checkpoint-on-physics + sync);
+**rocket league** (needs all four above).
+
+---
+
 ## Remaining follow-ons
 
-The whole backlog is shipped. Possible future polish (not currently planned):
+The original backlog is shipped. Possible future polish (not currently planned):
 
 - **Mirror axis choice** — mirror is currently across the vertical plane through the gizmo; a
   selector for X/Y/Z mirror planes would generalise it.
