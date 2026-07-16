@@ -364,3 +364,5 @@ FodyWeavers.xsd
 
 # Game libraries
 lib/
+# Packaged release archives (build artifacts)
+*.zip
