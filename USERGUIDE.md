@@ -4,15 +4,16 @@ This guide covers every feature of the mod and how to use it, for **track author
 want to *fly* maps that use moving objects, you just need the mod installed (see
 [Installation](#installation)) — everything below is for building.
 
-> **Status (v1.3.6).** This is the stable 1.3.x line: the core animation / physics / trigger paths and
+> **Status (v1.3.8).** This is the stable 1.3.x line: the core animation / physics / trigger paths and
 > the editor/item-spawn features (Select-all, Duplicate/Array/Copy-Paste/Mirror/Stamps, grouping,
-> sound-on-trigger, hazard-on-contact) are confirmed working in-game. The most recent editor fixes
-> (v1.3.1–v1.3.6 — group highlighting, rigid group scaling, one-row step buttons, faster scrolling,
-> keeping arrow keys inside focused text fields, the ghost-highlight cleanup, and clearing the gizmo
-> after an F9 delete) are being confirmed in playtest; the F9 gizmo-clear depends on the current
-> Liftoff build, so it fails gracefully if anything changes. As of v1.3.6 the hold-Alt arrow-key gizmo
-> nudge has been removed — arrow keys just fly the editor camera now. The experimental spectator sync
-> is off by default and version-specific. Please report anything that misbehaves.
+> sound-on-trigger, hazard-on-contact) are confirmed working in-game. Since v1.3.0 the line has added
+> **editor-wide Undo / Redo** (v1.3.8), **author-set Show-Text durations** and a **mod-version
+> compatibility gate** (v1.3.7), and a run of editor fixes (v1.3.1–v1.3.6 — group highlighting, rigid
+> group scaling, one-row step buttons, faster scrolling, keeping arrow keys inside focused text fields,
+> the ghost-highlight cleanup, and clearing the gizmo after an F9 delete). As of v1.3.6 the old
+> hold-Alt arrow-key gizmo nudge has been removed — arrow keys just fly the editor camera now. The
+> experimental spectator sync is off by default and version-specific. Full history is in the
+> [changelog](CHANGELOG.md). Please report anything that misbehaves.
 
 ---
 
@@ -67,6 +68,12 @@ want to *fly* maps that use moving objects, you just need the mod installed (see
   are unaffected. Several zeros are *sentinels* — e.g. Repeats `0` = infinite, Physics time `0` =
   never resets, Mass `0` = immovable, a trigger speed gate of `0` = no gate. Those are called out
   where they matter.
+- **Tracks record the mod version they need.** From v1.3.7 on, saving a track stamps it with the
+  minimum mod version required to play it correctly. If someone later flies it on an *older* mod
+  build, the mod leaves every moving object **static** (and logs "update your mod") rather than
+  mis-playing an animation the older build doesn't fully understand. Older/un-stamped tracks are
+  always treated as compatible. Nothing you author needs to change for this — just know that pilots on
+  an out-of-date mod will see your objects sit still until they update.
 
 ---
 
@@ -261,6 +268,14 @@ teleport routing controls only appear on **checkpoint** items; any item can carr
 - **Play sound on trigger** — drives the game's native sound-trigger item. Place a
   **Play Sound** track item, give *it* a trigger **Name** equal to this checkpoint's **Target**,
   and its configured sound plays when the checkpoint fires.
+
+### Show-Text message duration
+- **Text time (s), 0=default** — appears on a **Show Text** track item (in the animation editor). The
+  game's native Show-Text flashes its message for a fixed ~1 second, too quick to read more than a
+  word or two. Set any positive number of seconds here and the mod renders the message itself for
+  exactly that long — centred, drop-shadowed, and scaled to your resolution. Leave it at `0` for the
+  game's original ~1 s flash. If anything goes wrong at flight time the mod quietly falls back to the
+  default display.
 
 ---
 
@@ -626,6 +641,14 @@ Checkpoint: enable Trigger · **Target:** `boom` · `Play sound on trigger: on`
 Place a **Play Sound** track item and give *it* Trigger **Name:** `boom` (and pick its sound).
 
 **Why:** the checkpoint drives the native sound item that shares its Target name.
+
+#### On-screen message that stays readable
+> Show a line of text long enough to actually read it.
+
+Place a **Show Text** track item, set its message as usual, then set `Text time (s), 0=default: 4`.
+
+**Why:** the game's native flash is ~1 s; any positive value makes the mod render the message for that
+many seconds instead. Use `0` to keep the vanilla flash.
 
 ### Construction & workflow recipes
 
