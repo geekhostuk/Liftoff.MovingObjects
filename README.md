@@ -2,13 +2,13 @@
 
 > **Warning!** This project is not official and is not supported by the Liftoff game developers.
 
-> **Warning!** Maps built with this mod must be flown with the mod installed. Without the mod, animations and physics on those maps will not run.
+> **Note:** Only maps that actually *use* the mod's runtime features — moving objects, wind, physics changes, triggers — must be flown with the mod installed; without it those maps load but the animations and physics won't run. Maps you build with the editor's quality-of-life additions alone (no moving objects) are ordinary Liftoff tracks and play fine without the mod.
 
 A Liftoff mod that adds animated and physics-driven track objects, plus the editor extensions used to author them.
 
 ## What this is for
 
-Most people who install this mod do so to **fly community-made maps that use moving objects** rather than to author new ones. The animation, physics, and trigger code in the plugin reads metadata that mappers embed in `TrackBlueprint` items, then attaches runtime components that drive the motion at flight time. With the mod installed, those maps animate; without it, the same maps load but everything stays still.
+Most people who install this mod do so to **fly community-made maps that use moving objects** rather than to author new ones. The animation, physics, and trigger code in the plugin reads metadata that mappers embed in `TrackBlueprint` items, then attaches runtime components that drive the motion at flight time. With the mod installed, those maps animate; without it, the same maps load but everything stays still. (Only maps that use those runtime features need the mod — tracks built with just the editor's quality-of-life additions play as normal Liftoff tracks without it.)
 
 If you've been pointed at this mod by a community or league, you most likely just want the runtime — see [Install](#install) below.
 
