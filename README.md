@@ -2,27 +2,38 @@
 
 > **Warning!** This project is not official and is not supported by the Liftoff game developers.
 
-> **Note:** Only maps that actually *use* the mod's runtime features — moving objects, wind, physics changes, triggers — must be flown with the mod installed; without it those maps load but the animations and physics won't run. Maps you build with the editor's quality-of-life additions alone (no moving objects) are ordinary Liftoff tracks and play fine without the mod.
+> **Note:** Only maps that actually *use* the mod's runtime features — moving objects, wind, physics
+> changes, triggers — must be flown with the mod installed; without it those maps load but the
+> animations and physics won't run. Maps you build with the editor's quality-of-life additions alone
+> (no moving objects) are ordinary Liftoff tracks and play fine without the mod.
 
-A Liftoff mod that adds animated and physics-driven track objects, plus the editor extensions used to author them.
+A Liftoff mod that adds animated and physics-driven track objects, plus the editor extensions used to
+author them.
 
 ## What this is for
 
-Most people who install this mod do so to **fly community-made maps that use moving objects** rather than to author new ones. The animation, physics, and trigger code in the plugin reads metadata that mappers embed in `TrackBlueprint` items, then attaches runtime components that drive the motion at flight time. With the mod installed, those maps animate; without it, the same maps load but everything stays still. (Only maps that use those runtime features need the mod — tracks built with just the editor's quality-of-life additions play as normal Liftoff tracks without it.)
+Most people who install this mod do so to **fly community-made maps that use moving objects** rather
+than to author new ones. The animation, physics, and trigger code in the plugin reads metadata that
+mappers embed in `TrackBlueprint` items, then attaches runtime components that drive the motion at
+flight time. With the mod installed, those maps animate; without it, the same maps load but everything
+stays still.
 
-If you've been pointed at this mod by a community or league, you most likely just want the runtime — see [Install](#install) below.
-
-If you want to **build** maps with moving objects, see the **[User Guide](USERGUIDE.md)** — it details every feature and how to use it.
+If you've been pointed at this mod by a community or league, you most likely just want the runtime —
+see [Install](#install) below. If you want to **build** maps with moving objects, see the
+**[User Guide](USERGUIDE.md)** — it details every feature and how to use it.
 
 ### Communities using this mod
 
-- **[JMT FPV](https://jmtfpv.com)** runs a multiplayer room called **JMT-MOD** that races on tracks built around moving objects from this mod. JMT FPV publishes their own setup walkthrough at <https://jmtfpv.com/install> — follow that for the JMT-specific server/lobby steps; the *mod-side* installation below is the same regardless of which community you're flying with.
+- **[JMT FPV](https://jmtfpv.com)** runs a multiplayer room called **JMT-MOD** that races on tracks
+  built around moving objects from this mod. JMT FPV publishes their own setup walkthrough at
+  <https://jmtfpv.com/install> — follow that for the JMT-specific server/lobby steps; the *mod-side*
+  installation below is the same regardless of which community you're flying with.
 
 ### Leaderboards on modded tracks
 
 Historically, runs flown with this mod installed were withheld from Liftoff's leaderboards — the
-injected mod trips the game's anti-cheat, so times on tracks that use moving objects didn't count.
-That gate is on **Liftoff's side**, not something this mod controls.
+injected mod trips the game's anti-cheat. That gate is on **Liftoff's side**, not something this mod
+controls.
 
 **Lugus (Liftoff's developer) has now enabled leaderboard times for modded tracks** through their
 backend, so runs on maps that use this mod can post times again — confirmed working in-game (thanks
@@ -31,459 +42,91 @@ result; it's a server-side update on Liftoff's end.
 
 ## About this fork
 
-This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects) of [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects). **All credit for the mod itself goes to [ps-hek](https://github.com/ps-hek)** — they designed it, built it, authored the patcher and editor windows, and shipped the maps community has been racing on. This fork exists only to keep the mod working: the upstream release was last published in early 2024 and stopped working against current Liftoff builds (Unity 2022.3, BepInEx 5.4.23). The prebuilt 1.0.14 plugin would load but objects on modded maps would no longer animate. v1.1.0 in this fork restores the runtime against the current game.
-
-If you're looking for the original project, the commit history of new-feature work, or want to file an issue against the design rather than the modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
-
-### New in 1.3.8
-
-- **Undo / Redo in the track builder.** The editor finally has an undo stack: **Ctrl+Z** undoes and
-  **Ctrl+Y** redoes, with matching **Undo** / **Redo** buttons in the Placement utils window. It's
-  editor-wide — it covers moving an object (gizmo drag or the numeric transform fields), placing an
-  item from the palette, deleting, and every mod bulk action (paste, duplicate, array, mirror,
-  insert-stamp) and group/ungroup — and it works for the game's own native placement/delete/drag as
-  well as the mod's tools, because both funnel through the same add/remove chokepoints. A bulk action
-  (e.g. pasting a whole group) undoes as one step; a quick drag-then-nudge on the same object folds
-  into one step too. History holds the last 50 changes, is cleared each time you enter the editor,
-  and never touches flight time or the save format (an editor-only, non-breaking change — existing
-  tracks are unaffected). Per-object animation/trigger *config* edits in the detail pane aren't
-  undoable yet; that's a possible follow-up.
-
-### New in 1.3.7
-
-Two additions, both non-breaking — existing tracks are unaffected.
-
-- **Show-Text triggers can stay on screen as long as you want.** Liftoff's native Show-Text trigger
-  flashes its message for a fixed ~1 second with no way to change it, which is too quick to read
-  anything but a word or two. Show-Text items now have a **"Text time (s), 0=default"** field in the
-  animation/trigger editor: set any positive number of seconds and the mod renders the message itself
-  for exactly that long (centred, drop-shadowed, resolution-scaled). Left at `0` you get the game's
-  original ~1s flash, so nothing changes for existing maps. If anything goes wrong at flight time the
-  mod quietly falls back to the game's default display.
-- **Tracks warn instead of mis-playing on an out-of-date mod.** Saving a track now stamps it with the
-  minimum mod version needed to play it correctly. If someone later flies that track on an *older* mod
-  build than it needs, the mod leaves every moving object static (and logs "update your mod") rather
-  than half-playing an animation the older build doesn't fully understand — a clean "objects sit still,
-  update the mod" state instead of a confusing partial result. Older/un-stamped tracks are always
-  treated as compatible, and this only protects builds from 1.3.7 onward (mods shipped before this gate
-  ignore the stamp — it can't be applied retroactively). The stamped floor is bumped only for releases
-  that actually change how a track plays, so routine bugfix/editor releases won't block anyone.
-
-### New in 1.3.6
-
-- **Alt + Arrow gizmo nudging removed.** The hold-Alt nudge (added in 1.3.2) has been taken out at
-  Honk's request. It proved fiddly — it had to freeze the fly-camera while Alt was held, which paused
-  mouse-look and repeatedly interfered with typing in text fields. The arrow keys now do exactly what
-  vanilla Liftoff does: fly the editor camera, nothing more. Nudge objects with the numeric transform
-  fields instead. Arrow keys still stay inside a focused text field (the 1.3.5 fix is unaffected).
-
-### New in 1.3.5
-
-- **Arrow keys stay inside a text field while typing (the real fix).** Editing a mod text field and
-  pressing an arrow at the end of the value could kick focus out of the field and move your avatar
-  (Honk: "Right arrow moves the avatar and exits the field"). The cause is UI Toolkit's directional
-  focus-navigation: an arrow the field can't use for the caret gets turned into a focus-move that
-  exits the field, and losing focus drops the game's "typing, don't move" suppression so the key
-  reaches the fly-camera. The mod now swallows that navigation while a text field is focused, so the
-  arrows stay in the field (caret only) and the avatar doesn't move — matching the game's own fields.
-  (This supersedes the 1.3.3 attempt, which mis-blamed the hold-Alt nudge and didn't fix it.)
-
-### New in 1.3.4
-
-- **Deleting with F9 no longer leaves a "lonely" gizmo behind.** After F9-deleting a selected item or
-  group, the game still had it selected in gizmo-manipulation mode, so the transform gizmo was left
-  floating with nothing attached (thanks Honk). Delete now drops the editor back to Place mode
-  afterwards — the same thing the editor's own "return to place mode" button does — so the game
-  deselects and clears the gizmo. Selecting another item re-enters gizmo mode as normal.
-
-### New in 1.3.3
-
-Follow-up fix to the 1.3.2 hold-Alt nudge.
-
-- **Arrow keys behave normally again while typing in a field.** In 1.3.2 the fly-camera freeze engaged
-  whenever **Alt** was held — including while you were editing a text field. Freezing disables the
-  avatar's controller, which is what vanilla Liftoff relies on to keep arrow keys inside a focused
-  field, so with Alt held an arrow key could move the avatar and kick focus out of the field (thanks
-  Honk). The mod now does nothing with the arrows while any text field is focused — no nudge, no
-  freeze — so typing is pure vanilla again. Nudging outside fields (**Alt + arrows**) is unchanged.
-
-### New in 1.3.2
-
-Two more editor fixes from Honk's playtest.
-
-- **Arrow-key nudge no longer flies your avatar too.** The editor fly-camera also moves on the arrow
-  keys (Unity binds them alongside WASD), so nudging the gizmo with the arrows moved *you* at the same
-  time — a problem especially for creators who navigate with the arrow keys instead of WASD. Nudge is
-  now a **hold-Alt** action: **plain arrows fly the camera as normal**, and **Alt + arrows** nudge the
-  gizmo only (while Alt is held the fly-camera is frozen so the arrows can't move you). **Shift** still
-  means vertical, so **Alt + Shift + arrows** nudges up/down. Note: mouse-look pauses while Alt is held.
-- **Group edits no longer leave a "ghost" highlight behind.** After removing pieces from a group
-  (Shift+MMB), regrouping, duplicating and re-merging, a leftover highlight overlay could linger at old
-  positions (purely visual — it cleared on reload / "fly track → return to builder"). Selection
-  teardown now also sweeps highlight clones/markers whose carrier object had been deactivated, which it
-  previously skipped. (The duplicate/copy/mirror/stamp path was already clean — it spawns from the game
-  prefab, so it never copied overlay children.)
-
-### New in 1.3.1
-
-Bugfix release on top of the stable 1.3.0 line — five small editor fixes/quality-of-life tweaks
-from Honk's playtest feedback. No changes to flight-time behaviour or the save format.
-
-- **Arrow-key nudge no longer fires while you're typing.** Nudging the gizmo with the arrow keys is
-  handy, but the keys were also moving the selected object while you were editing a text field — e.g.
-  an animation step's Time/Delay — so a value edit could teleport the object (thanks Honk). The mod
-  runs two independent editor panels; the guard only watched one, so typing in the *other* still
-  nudged. Arrows are now suppressed whenever any editor text field has focus.
-- **Grouped objects show their pink highlight immediately.** Selecting a group only tinted the
-  members you'd already moused over — the magenta highlight is cloned from the game's hover overlay,
-  which the game builds *lazily* on first hover, so never-hovered members stayed uncoloured until
-  touched. The mod now forces that overlay to be built up front, so the whole group lights up on
-  selection (this also makes **Select all** show magenta on freshly loaded blocks). Grouping itself
-  was always correct; this was purely cosmetic.
-- **Scaling a grouped object no longer drags the rest of the group around.** Resizing a scalable
-  block that belonged to a selected group made every *other* member slide toward or away from it
-  (their sizes didn't change — only their spacing), which quietly shifted the group (thanks Honk).
-  Group-follow is now rigid: moving or rotating the group anchor still moves the whole group together,
-  but scaling a member is a purely local change.
-- **Animation step buttons are on one row.** The per-step buttons (Delete / Update / ↑ / ↓ / +) used
-  to stack vertically and ate a lot of height; they're now a single compact row per step.
-- **Faster step-list scrolling.** The animation step list (and the whole editor panel) scrolled a
-  tiny amount per mouse-wheel notch; the wheel step is now much larger.
-
-### New in 1.3.0
-
-First **stable** release of the moving-objects feature line. It promotes the work that shipped
-across the 1.2.x betas (see the per-version notes below) out of beta — everything is now confirmed
-working end-to-end **in-game (flight) and in the track builder**. No new features over 1.2.11; this
-is the tested 1.2.x line consolidated into a stable version.
-
-- **Leaderboards on modded tracks now count.** Lugus (Liftoff's developer) has enabled leaderboard
-  times for modded tracks through their backend — see
-  [Leaderboards on modded tracks](#leaderboards-on-modded-tracks). This is a Liftoff-side change,
-  not part of the mod.
-
-### New in 1.2.11
-
-- **Fully tested** — verified end-to-end both in-game (flight) and in the track builder. This
-  release, and the paste/mirror/grouping/spinner work that landed across the 1.2.x betas, are
-  confirmed working in a real session.
-- **Grouped chambers animate in flight again — even when only some pieces carry the motion.** A whole
-  grouped chamber that spun (or ran a 90° step rotation) perfectly in the editor could stand frozen in
-  flight (thanks Honk for the report). A flight group runs **one motion driver** — the elected "root"
-  member gets the player and the rest ride along — but election picked the *first member with any MO
-  config*, not the one actually carrying motion. Build a chamber by copying pieces around and several
-  end up with a non-null-but-motionless config, so a motionless piece could win: it got no player (it
-  moves nothing), and your real spinner/step piece was skipped as a non-root member, so the group never
-  moved — while the editor still previewed fine because it drives whichever piece you have *selected*.
-  Election now prefers a piece that actually carries motion, so the group's driver always animates.
-- **⚠️ Note for grouped motion:** a flight group still moves as **one body under one driver**. If a
-  group contains *two different* motions — e.g. a spinner on one piece **and** a 90°-step door on
-  another — only the elected root plays; the second motion is lost. Put independent motions in
-  **separate groups** (or leave them ungrouped).
-
-### New in 1.2.10 (beta)
-
-- **"Select all" now really catches everything.** In 1.2.9 it only picked up blocks the mouse cursor
-  had already passed over. The game builds each object's magenta hover-overlay *lazily* — only once
-  you've hovered it — and select-all was hanging its selection marker on that overlay, so any block
-  you'd never moused over was silently skipped (thanks Honk for the pin-sharp repro). Selection no
-  longer depends on the overlay: every object gets a marker whether or not the game has built its
-  overlay yet, so **Select all** captures the whole map on a freshly loaded track. (One cosmetic
-  caveat: a never-hovered block is selected but may not *look* magenta, because that highlight art is
-  the game's own hover overlay — verify with F9/Copy/Ctrl+G, which now act on every block.)
-
-### New in 1.2.9 (beta)
-
-- **Select all objects.** New **"Select all objects"** button in the Placement utils window marks
-  every placed item on the map as one flat multi-selection — so the whole track can be copied,
-  mirrored, saved to a stamp, deleted (F9), or grabbed and moved in a single action. Existing groups
-  are left untouched, so you choose what happens next: move the lot with each sub-group still intact,
-  or **Ctrl+G** to weld everything into one group. It reuses the existing selection machinery, so
-  everything downstream works unchanged.
-
-### New in 1.2.8 (beta)
-
-Group fixes from in-game playtest:
-
-- **Grouped objects spin/move in flight again.** A group whose members all carried animation config
-  (e.g. a fan built up from copies) froze in flight while spinning fine in preview: injection gave
-  *every* member its own kinematic body and they fought over the shared pose to a standstill. Flight
-  now runs **one motion driver per group** — only the group root gets a player, the other members are
-  parented under it and ride along — so the whole assembly moves as one body. (Also fixes a latent
-  transform-cycle from the root being reparented under its own group object.)
-- **Copies of copies are complete again.** Copy / duplicate (F5) / delete (F9) / mirror / stamp now
-  take group membership from the authoritative `mo_groupId`, not from the pink-highlight markers. A
-  freshly spawned copy hasn't got the game's selection overlay yet, so the marker-based capture
-  silently dropped those members — copying a copy lost pieces, and copying *that* lost more. Capture
-  is now by group id, so every generation comes out whole.
-- **Animation editor panel fits the screen.** With steps plus the spinner/orbit/physics controls the
-  panel used to run off the bottom of a 1080p screen with the lower controls unreachable. The panel
-  content is now wrapped in a height-capped scroll view.
-
-### New in 1.2.7 (beta)
-
-Editor hotkeys and group editing:
-
-- **F5 — Duplicate selection in place**, **F9 — Delete selection.** Hotkeys for the selection tools
-  (both also have toolbar buttons). A pink group counts as one selection, so both act on the whole
-  group. Delete goes through the editor's own removal so it's gone from the saved track too.
-- **Shift + middle-click edits group membership.** With a group (or any item) selected, Shift+MMB a
-  loose object to **add** it to the group, or Shift+MMB a current member to **remove** it — expand or
-  shrink a group without rebuilding it. Shift+MMB from a lone selection seeds a new group.
-- **Greatly expanded [User Guide](USERGUIDE.md).** Brought current to 1.2.7 (F5/F9, Shift+MMB, the
-  experimental spectator-sync config option) and given a large **[Recipes cookbook](USERGUIDE.md#recipes--worked-examples)**
-  — ~40 worked examples with exact settings for fans, pendulums, elevators, portals, catapults,
-  wind tunnels, speed pads, stamps, and more.
-
-### New in 1.2.6 (beta)
-
-- **The origin bug is actually fixed this time.** Pasted / stamped / duplicated objects no longer
-  collapse onto the origin after a save + reload. Root cause (confirmed from the game's own IL, not
-  guessed): a freshly spawned item is born with a default blueprint at the origin, and the mod
-  registered *that* blueprint into the track before applying the real one — so the game's spawn path
-  swapped the item onto our blueprint but the **origin** one stayed in the saved track. The mod now
-  applies the blueprint *before* the item is registered, so the object that gets saved is the one you
-  actually placed. (Tracks saved under the old bug keep their stray origin copies — delete those once.)
-- **Copy/paste groups like stamp does.** Copying an ungrouped multi-selection now pastes back as one
-  group, matching stamp behaviour (both use one shared rule: a paste/stamp/duplicate of more than one
-  item arrives as a single fresh group).
-- **A highlighted group is a real selection.** Clicking one object of a group (the whole group turns
-  pink) now counts as selecting the whole group — Copy, Save-to-stamp, Mirror and Duplicate all
-  capture every member, instead of collapsing to just the clicked object. No more re-selecting a
-  group piece by piece.
-- **New "Duplicate selection in place" button.** Duplicates the current selection (a pink group
-  counts as one selection) exactly on top of the originals as a fresh group — grab it and drag it
-  off. No detour via the gizmo/origin.
-
-### New in 1.2.5 (beta)
-
-Two more paste/stamp fixes from in-game playtest:
-
-- **Pasted / stamped / duplicated objects stay where you put them after a save + reload.** Spawned
-  items set their live position on screen but never wrote it into the blueprint the game serialises a
-  track from, so they saved at `(0,0,0)` and reappeared stacked on the **origin** next time the map
-  was loaded (the "phantom copies from yesterday's session"). Each spawned item now writes its final
-  position/rotation into its own blueprint, so a save persists where things actually are. Note: tracks
-  already saved with the old bug keep their stray origin copies — delete those once; new saves are fine.
-- **Inserting a stamp always gives you one group.** Whether a stamp came in grouped used to depend on
-  whether the original selection happened to be grouped before you saved it — ungrouped selections
-  stamped in loose, grouped ones stamped in as a group. A stamp is now always inserted as a single
-  cohesive group you can nudge into place (and ungroup with **G** if you want to edit its pieces).
-
-### New in 1.2.4 (beta)
-
-Follow-ups to the 1.2.3 copy/paste fix, from in-game playtest:
-
-- **Pasted / mirrored objects keep their MO config and grouping.** Paste and mirror were writing the
-  mod's config onto a throwaway blueprint that the game's spawn path ignores, so pasted objects lost
-  their animation, trigger, and (most visibly) their **group** — a copied group came back as loose
-  single objects. The `mo_*` config is now written onto each spawned item's own blueprint, so a
-  pasted group is a group again and animated/triggered objects keep behaving.
-- **Paste lands on the grid.** A multi-object paste anchored its centroid on the gizmo, which for an
-  even-count selection sits half a cell off-grid — so the paste dropped slightly out of alignment.
-  The paste translation is now snapped to the grid step (respects the grid setting; no-op when the
-  grid is off), so pasted pieces keep their alignment.
-
-### New in 1.2.3 (beta)
-
-- **Multi-object copy/paste and mirror now keep their layout.** A pasted (or mirrored) selection
-  used to collapse every object onto the cursor and lose its rotation, because the paste read each
-  object's *blueprint* position/rotation — fields the game only syncs to the object at track
-  save/load, so mid-edit they're stale. Copy/mirror now capture each item's **live** transform
-  (position, rotation, scale) and set it explicitly on the spawned object, so the pasted set
-  reproduces the exact relative spacing, orientation, and scale around the gizmo. Save-to-stamp
-  likewise now records live positions rather than stale ones.
-- **Editor triangle stats no longer run on window open.** The per-second stats poll that caused
-  editor stutter was disabled back in 1.2.0, but a later change re-ran the scene-wide triangle count
-  every time the placement window opened — a fresh hitch on large maps, and a whole-scene poly count
-  that looked wrong for a selection. Stats are now computed **only** when you click *Refresh stats*.
-
-> Note: since confirmed in-game — paste/mirror of a multi-item selection reproduces the relative
-> spacing and rotations (see the 1.2.11 "Fully tested" note).
-
-### New in 1.2.2 (beta)
-
-- **Spinner / orbit now run in flight, not just in the editor.** Continuous-rotation and
-  circular-orbit objects that had *no keyframe steps* previewed correctly in the editor but were
-  never given a runtime player in flight — injection only fired for objects with at least one
-  animation step, and a spinner/orbit needs none. Spinner- or orbit-only objects now animate in
-  flight the same way they always did in the editor preview.
-- **Experimental spectator animation sync (opt-in, off by default).** When you spectate another
-  pilot in multiplayer, your client never receives the local drone-reset events, so moving objects
-  keep running from their own start time and drift out of sync with what the spectated pilot sees.
-  A new **`[Experimental] SpectatorAnimationSync`** config option watches the game log for the
-  spectator camera re-attaching to a pilot and re-syncs the moving objects on that pilot's reset
-  (and when you switch spectate target). It is best-effort and Liftoff-version-specific — network
-  latency can still cause brief clipping — and is based on a proof-of-concept contributed by
-  **[AMPW-german](https://github.com/AMPW-german)**, reworked here to run on the Unity main thread,
-  behind a config flag, from a single non-threaded log subscription (instead of the original's
-  cross-thread call and four Harmony log-sink patches).
-
-> Note: the spinner-in-flight fix is since confirmed in-game (see the 1.2.11 "Fully tested" note).
-> The experimental spectator sync remains best-effort — it depends on a log line that varies by
-> Liftoff version, so treat it as beta.
-
-### New in 1.2.1
-
-- **Grouped-sphere physics fix** — a group of two half-spheres (or any grouped physics body) now
-  collides and rolls as one solid object. Mesh colliders on a physics body are forced convex
-  (Unity silently drops non-convex meshes from a dynamic rigidbody, so the body would fall through
-  or slide instead of roll), and the **F2 physics preview** now builds a real compound body instead
-  of just making the other members visually follow the root — so the preview matches in-flight.
-- **Fully tested** — verified end-to-end both in-game (flight) and in the track builder.
-
-### New in 1.2.0
-
-A large feature release implementing the remaining `ideas.md` backlog. Grouped by system:
-
-- **Animation** — easing curves (SmoothStep / ease in/out), ping-pong / yo-yo playback, a
-  spinner (constant-rotation) mode, an orbit / circular-path mode, and a per-object phase offset
-  (with randomize) to desync fields of identical objects.
-- **Physics** — an initial launch impulse/torque, and gravity-scale / drag / mass overrides
-  (floaty, heavy, or anti-gravity bodies). **Grouped physics now works** (compound body on the
-  group root).
-- **Triggers & teleports** — one-shot / cooldown gates, sequential vs random exit markers,
-  boost / brake gates (in-place speed rescale), wind / force volumes, speed-based routing,
-  sound-on-trigger (drives the native sound item), and hazard-on-contact (kills the drone).
-- **Editor authoring** — copy/paste of MO config between objects, editable / reorderable
-  animation steps, an animation path preview, a timeline scrubber, numeric transform entry,
-  trigger/portal validation (lint), on-demand object/triangle stats, and
-  in-editor trigger-link gizmos.
-- **Item spawning** — the mod can now instantiate track items from blueprints (the long-missing
-  primitive), enabling single-item **Duplicate** and **Array** placement. Multi-object
-  copy/paste, mirror, and save-to-file build on the same primitive.
-- **Workshop preview override re-enabled** — sharing a track again honours a local `preview.png`.
-
-> Note: the continuous/physics/trigger runtime behaviours and the item-spawn features are since
-> confirmed in-game (see the 1.2.11 "Fully tested" note).
-
-### New in 1.1.2
-
-- **[Trigger action: (re)start vs. stop](#trigger-action-restart-vs-stop)** — a `Restart`/`Stop` option on animations, so a trigger can now switch a running animation *off* (freeze in place), the mirror of the existing "start on trigger" behavior.
-- Verified against **Liftoff 1.7.4**.
-
-### New in 1.1.1
-
-- **[Portal-style teleports](#portal-style-teleports)** — opt-in seamless teleports that carry the drone's momentum and orientation into the exit gate's frame, with an optional exit-speed override.
-- **[High-speed trigger reliability](#high-speed-trigger-reliability)** — continuous-collision watchdog plus swept-ray detection so triggers no longer get tunnelled through by a fast drone.
-
-### What's verified working in v1.1.0
-
-- Object animation, physics, and triggers on community maps (e.g. *Honkey Kong*).
-- Flying through the JMT-MOD multiplayer room.
-- Track editor extensions (animation editor window, placement utilities) for authors.
-- Animations correctly re-bind after switching tracks within a session.
-
-### Resolved in 1.2.0
-
-- **Workshop preview overwrite (`PopupShareContent.ShareItem`) is working again.** `ShareItem` has a single overload, so it is now patched by name alone (no parameter types), which binds without needing to name the obfuscated third-parameter type; the `Sprite` preview is reached positionally.
-- **Editor "Object count" / "Triangle count" no longer pinned to `0`.** Counting is restored behind an on-demand "Refresh stats" button (plus one count on window open) instead of the per-second poll that stuttered on large maps; triangle counts use `GetIndexCount` to avoid per-mesh allocations.
-
-### Why upstream 1.0.14 stopped working
-
-Three independent issues, uncovered via runtime tracing:
-
-1. **`PopupShareContent.ShareItem` signature changed.** HarmonyX raised an exception out of `Harmony.CreateAndPatchAll`, aborting registration of every other patch in the plugin. The mod loaded, but no patches were actually attached.
-2. **The plugin's `OnDestroy` called `Harmony.UnpatchSelf()`.** The current game destroys the BepInEx plugin GameObject during the bootstrap-scene unload, very early in startup. Once the broken `ShareItem` patch was removed and the rest *did* attach, this teardown promptly removed them again before any flight session began.
-3. **Game refactor: `LevelInitSequence.InitializeLevel` and `FlightManager.ResetDroneRoutine` are now dead code.** The methods still exist in `Assembly-CSharp.dll` (so Harmony resolves them silently) but they are never called by the current game flow. Animation/physics injection now hooks `FlightManager.Start` and subscribes to the parameterless `onDroneResetStart` / `onDroneResetDone` events instead.
+This is a [geekhostuk fork](https://github.com/geekhostuk/Liftoff.MovingObjects) of
+[ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects). **All credit for the
+mod itself goes to [ps-hek](https://github.com/ps-hek)** — they designed it, built it, authored the
+patcher and editor windows, and shipped the maps community has been racing on. This fork exists only
+to keep the mod working: the upstream release was last published in early 2024 and stopped working
+against current Liftoff builds (Unity 2022.3, BepInEx 5.4.23). v1.1.0 in this fork restored the
+runtime against the current game, and the v1.2.x–v1.3.x line adds the full moving-objects feature set.
+
+If you're looking for the original project or want to file an issue against the design rather than the
+modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
+
+## What's new in 1.3.8
+
+- **Undo / Redo in the track builder** — **Ctrl+Z** / **Ctrl+Y**, editor-wide (move, place, delete,
+  and every bulk action), for both the mod's tools and the game's native placement.
+- Recent releases also added author-set **Show-Text durations** and a **mod-version compatibility
+  gate** (1.3.7), and a run of editor fixes across the 1.3.x line.
+
+See the **[full changelog](CHANGELOG.md)** for the complete release history.
 
 ## Features
 
+Each feature is documented in full in the **[User Guide](USERGUIDE.md)**; this is the tour.
+
 ### Object animation
-Adds step-by-step animation for objects (authored via the in-game animation editor window).
+Step-by-step keyframe animation plus procedural motion (spinner, orbit) for objects, authored via the
+in-game animation editor window — with easing, ping-pong, phase offsets, and triggerable start/stop.
 
 ![Animation demo](images/animation.gif)
 
 ### Physics
-
-Adds physics to objects.
+Turn an object into a rigidbody that falls, launches, or floats — with launch impulse/torque, gravity
+overrides, drag, and mass. Grouped physics simulates as one compound body.
 
 ![Physics demo](images/physics.gif)
 
-### Unlock blueprint objects
+### Triggers & teleports
+Name-matched triggers let a checkpoint fire behaviour on pass: portal-style seamless teleports (with
+momentum), boost/brake gates, wind/force volumes, speed gates and routing, sound-on-trigger, and
+hazard-on-contact. A continuous-collision watchdog keeps triggers reliable at any speed.
 
-Allow placing objects from the Blueprint map on any map.
+### Unlock blueprint objects
+Place objects from the Blueprint map on any map.
 
 ![Blueprint objects demo](images/blueprint.png)
 
-### Portal-style teleports
-
-Teleport triggers can now carry your momentum through the gate, *Portal*-style, instead of dropping you out with your old world-space velocity (which left you exiting sideways). With **Seamless teleport** enabled, the drone's entry velocity and orientation are re-expressed in the exit marker's frame:
-
-- Fly straight through → exit straight along the exit gate's forward.
-- Enter at an angle → exit deflected by the same angle, carrying your speed.
-
-An optional **Exit speed** (km/h) overrides the exit magnitude while keeping the computed direction: `0` preserves your entry speed (true momentum), `> 0` turns the portal into a launch pad or a brake gate.
-
-**Authoring:** the exit marker is any object given a trigger `Name` — rotate it to aim the exit. The entrance is a checkpoint with trigger `Target` + `Teleport` + `Seamless teleport` (plus an optional `Exit speed`). It's opt-in and defaults off, so existing maps are unaffected.
-
-### High-speed trigger reliability
-
-Triggers (teleports, animation/physics starts) previously **missed fast passes** — Unity's `OnTriggerEnter` only fires when the drone overlaps a collider on a physics step, so a fast drone could tunnel straight through. The mod now adds a continuous-collision watchdog on the drone plus swept-ray path detection against trigger colliders, so triggers fire reliably at any speed.
-
-### Trigger action: (re)start vs. stop
-
-A trigger could previously only **(re)start** an animation, and any object that was a trigger target began **dormant** and played on trigger. Animations now carry a **Trigger action** option — `Restart` (default) or `Stop`:
-
-- **Restart** — unchanged behavior: the object stays dormant until a trigger (re)starts it.
-- **Stop** — the object **runs from the start** and a trigger **freezes it in place** (it does not snap back to its start pose). This is the mirror of "start on trigger" — e.g. a spinning hazard or moving platform that a gate switches off. A drone reset restarts the animation from the top.
-
-**Authoring:** in the animation editor window, set **Trigger action** to `Stop`, give the object a trigger `Name`, and target that name from a checkpoint's trigger `Target`. It defaults to `Restart`, so existing maps are unaffected.
+### Editor authoring tools
+Multi-selection, groups, duplicate/array/mirror, multi-object copy/paste, reusable cross-track
+stamps, numeric transform entry, path/scrub previews, trigger-link gizmos, a trigger linter, and
+editor-wide undo/redo. See the [User Guide](USERGUIDE.md) for the full toolkit and key bindings.
 
 ## Install
 
 If you only want to play modded maps, this is all you need.
 
-1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder. (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.3.8.zip` from the [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
+1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder.
+   (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
+2. Download `Liftoff.MovingObjects-1.3.8.zip` from the
+   [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
    - `BepInEx/patchers/Liftoff.MovingObjects.Patcher.dll`
 4. Launch Liftoff. Modded maps should now animate.
 
-If you're flying with JMT FPV, follow <https://jmtfpv.com/install> for the lobby/server side after the mod is installed.
+If you're flying with JMT FPV, follow <https://jmtfpv.com/install> for the lobby/server side after the
+mod is installed.
 
 ## Building from source
 
-This is only needed if you're modifying the mod or want to rebuild against a newer game version.
-
-Requirements:
-- .NET SDK 10.
-- Liftoff installed via Steam.
-
-Run the helper script from the repository root:
+Only needed if you're modifying the mod or rebuilding against a newer game version. Requires the
+**.NET SDK 10** and Liftoff installed via Steam:
 
 ```powershell
-./build.ps1                                       # build only
-./build.ps1 -Deploy                               # build and copy to BepInEx
-./build.ps1 -LiftoffPath 'D:\Steam\...\Liftoff'   # custom install path
+./build.ps1            # build only
+./build.ps1 -Deploy    # build and copy into BepInEx
 ```
 
-The script:
-
-1. Copies the engine DLLs Liftoff ships with into `./lib/`.
-2. Builds `Liftoff.MovingObjects.Patcher` (BepInEx preloader patcher; injects the `MO_*` serializable types into `Assembly-CSharp.dll` at game-load time).
-3. Runs `tools/PatchHelper` to write a patched copy of `Assembly-CSharp.dll` into `./lib/`. **The plugin cannot compile against an unpatched assembly** because it references `MO_AnimationOptions`, `MO_Animation`, and `MO_TriggerOptions` — types the patcher creates rather than fields the game ships with. This step makes those types available at compile time too.
-4. Builds `Liftoff.MovingObjects` (the BepInEx plugin).
-5. Optionally copies both DLLs into `<LiftoffPath>/BepInEx/{plugins,patchers}`.
-
-### Layout
-
-```
-Liftoff.MovingObjects/             # the BepInEx plugin (runtime mod)
-Liftoff.MovingObjects.Patcher/     # the BepInEx preloader patcher (Cecil-injects MO_* types)
-tools/PatchHelper/                 # build-time tool: applies the patcher's logic offline
-                                   # to produce the lib/Assembly-CSharp.dll reference DLL
-lib/                               # populated by build.ps1, gitignored
-build.ps1                          # the build entry point
-```
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the full build pipeline, the project architecture, the
+injected `MO_*` track schema, and the `tools/PatchHelper` IL-inspection toolkit.
 
 ## Roadmap
 
-Planned and proposed features live in [`ideas.md`](ideas.md) — a backlog grouped by system
-(animation, physics, triggers/teleports, editor QoL, infrastructure), each entry tagged with
-a status (`shipped` / `partial` / `open`) and effort estimate. It's the place to look before
-picking up new work or filing a feature request.
+Planned and proposed features live in [`ideas.md`](ideas.md) — a backlog grouped by system, each entry
+tagged with a status (`shipped` / `partial` / `open`) and an effort estimate. It's the place to look
+before picking up new work or filing a feature request.
 
 ## Maps (sampler)
 
@@ -492,8 +135,11 @@ picking up new work or filing a feature request.
 
 ## Credits
 
-- **[ps-hek](https://github.com/ps-hek)** — original author and maintainer of the mod, the patcher, the editor UI, and the published maps. Everything user-facing about this mod is their work.
-- **[geekhostuk](https://github.com/geekhostuk)** — maintains this fork, modernizing the mod to keep working with newer Liftoff builds.
-- **[AMPW-german](https://github.com/AMPW-german)** — contributed the proof-of-concept for multiplayer spectator animation sync (v1.2.2).
+- **[ps-hek](https://github.com/ps-hek)** — original author and maintainer of the mod, the patcher,
+  the editor UI, and the published maps. Everything user-facing about this mod is their work.
+- **[geekhostuk](https://github.com/geekhostuk)** — maintains this fork, modernizing the mod to keep
+  working with newer Liftoff builds.
+- **[AMPW-german](https://github.com/AMPW-german)** — contributed the proof-of-concept for
+  multiplayer spectator animation sync (v1.2.2).
 
 If you find this mod useful, please go give the upstream repo a star.

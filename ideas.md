@@ -4,23 +4,14 @@ A running backlog for the mod, **grouped by system**. Each entry notes what it d
 it's worth doing, an **effort** estimate, a **status** (`shipped` / `partial` / `open`),
 and which files it touches.
 
-Adding an **author-facing option** generally touches three layers:
+> Adding an author-facing option touches three layers (serialized field → editor control →
+> runtime reader). The full walkthrough, the `MO_*` schema, and the build/tooling now live in
+> **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
-1. A serialized field in `Liftoff.MovingObjects.Patcher/Patcher.cs` — the injected `MO_*`
-   types (`MO_AnimationOptions`, `MO_TriggerOptions`, `MO_Animation`) so it round-trips in
-   `TrackBlueprint` XML.
-2. The editor UI. The `liftoffui.bundle` can't be rebuilt without Unity, so new controls
-   are **added in code** in `AnimationEditorWindow.cs` (see the `Ensure*Controls` methods for
-   the pattern) or `PlacementUtilsWindow.cs`.
-3. The runtime reader — `Player/AnimationPlayer.cs`, `Player/PhysicsPlayer.cs`, or
-   `TriggerBehavior.cs`.
-
-Features that reuse existing data or are pure runtime changes are the cheapest.
-
-> **v1.2.0** shipped the entire open backlog below. Runtime behaviours (continuous motion,
-> physics, triggers) and the item-spawn features compile against the current game and are wired
-> end-to-end, but should be confirmed with an in-game playtest. A few follow-ons that layer on
-> the new item-spawn primitive remain open (see **Remaining follow-ons**).
+> **v1.2.0** shipped the entire open backlog below, and the 1.2.x–1.3.x line is **confirmed
+> working in-game** (playtested end-to-end since v1.2.11 — see the [changelog](CHANGELOG.md)). A
+> few follow-ons that layer on the item-spawn primitive, plus a new physics-interaction backlog,
+> remain open (see **Open** and **Remaining follow-ons**).
 
 ---
 
@@ -75,9 +66,9 @@ A `triggerAction` option (`Restart`/`Stop`) lets a trigger halt a running animat
 - **Speed-based routing** (`routeBySpeed` + `routeSpeedThreshold`): pick the exit marker by the
   drone's speed band.
 - **Sound on trigger** (`playSoundOnTrigger`): drives the native `TrackItemPlaySoundTrigger`
-  named as a target (`PlaySoundFile` by reflection). *Needs playtest.*
+  named as a target (`PlaySoundFile` by reflection).
 - **Hazard-on-contact** (`killOnContact`): a `HazardContact` component crashes the drone on
-  contact via `FlightManager.CrashDrone` (reflection). *Needs playtest.*
+  contact via `FlightManager.CrashDrone` (reflection).
 - Files: `Patcher.cs`, `TriggerBehavior.cs`, `HazardContact.cs`, `Plugin.cs`,
   `AnimationEditorWindow.cs`.
 
@@ -109,6 +100,18 @@ pane) are out of scope. Covers object add/delete/move/group only.
 - Files: `UndoHistory.cs`, `Utils/MoUndoId.cs`, `Utils/ItemSpawner.cs` (`SpawnExact`), `Plugin.cs`,
   `PlacementUtilsWindow.cs`.
 
+### ✅ Show-Text overlay with author-set duration — v1.3.7
+A `mo_textDisplayTime` (seconds) field on **Show Text** items. A Harmony prefix on
+`TrackItemShowTextTrigger.OnDroneEnter` renders the message via `ShowTextOverlay` for that long
+(0 = the game's default ~1 s flash), falling back to the game display on any error.
+- Files: `Patcher.cs`, `AnimationEditorWindow.cs`, `ShowTextOverlay.cs`, `Plugin.cs`.
+
+### ✅ Forward-compatibility version gate — v1.3.7
+Saved tracks are stamped with `mo_minModVersion`; at flight time an out-of-date mod leaves moving
+objects static rather than mis-playing. Floor tracked by `Plugin.MinCompatibleVersion` (bumped only
+for behaviour-changing releases).
+- Files: `Patcher.cs` (`mo_minModVersion`), `Plugin.cs`.
+
 ### ✅ Item spawning + duplicate/array/mirror/copy-paste/stamps — v1.2.0
 The mod can finally **instantiate a live track item from a `TrackBlueprint`** — the primitive
 that blocked every prior copy/paste attempt. The chain (all public, obfuscated types held via
@@ -124,7 +127,7 @@ that blocked every prior copy/paste attempt. The chain (all public, obfuscated t
   insert it into any track (`Utils/StampIO.cs`, XmlSerializer over `TrackBlueprint`; all its fields
   are simple/serializable).
 
-*All item-spawn features compile against the game; needs in-game playtest.*
+*All item-spawn features are confirmed working in-game (playtested since v1.2.11).*
 
 ### ✅ Workshop preview override *(FINISH)* — v1.2.0
 The `PopupShareContent.ShareItem` patch is restored. `ShareItem` has a single overload, so it is
