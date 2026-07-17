@@ -172,7 +172,7 @@ You can also edit the **time** and **delay** fields directly. New steps are crea
 | **Trigger action** | `Restart` (a trigger (re)starts it; the object stays dormant until fired) or `Stop` (the object auto-plays from load and a trigger freezes it in place). |
 | **Easing** | Curve for each step's motion: `Linear` (default), `SmoothStep`, `EaseIn`, `EaseOut`, `EaseInOut`. Makes pendulums/elevators/doors look natural. |
 | **Ping-pong** | After the forward pass, retrace the waypoints back to the start — author half an animation, get the return for free. One there-and-back counts as one repeat. |
-| **Phase offset** (s) + **Randomize phase** | One-time start delay so a field of identical objects desyncs instead of moving in lockstep. Randomize picks a delay in `[0, phase offset]`. |
+| **Phase offset** (s) + **Randomize phase** | One-time start delay so a field of identical objects desyncs instead of moving in lockstep. Randomize gives each object its own delay in `[0, phase offset]`, derived from the object itself — so it's the same scatter on every player's PC, and the same after every reset, rather than a fresh roll each time. |
 | **Kill drone on contact** | Turns the moving object into a hazard — touching it crashes the drone. |
 
 ### Procedural motion (no keyframes needed)
@@ -401,7 +401,6 @@ Known limitations while it's on:
   stay out of step until their next reset.
 - Objects set to **wait for a trigger** still won't start for a spectator: the game gives a
   spectated pilot's drone no collision shape on your PC, so it can't trip a trigger volume.
-- Objects using **randomised phase offset** won't match, because each PC rolls its own offset.
 
 ---
 

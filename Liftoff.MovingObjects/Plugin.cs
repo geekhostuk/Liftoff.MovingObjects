@@ -495,10 +495,33 @@ public sealed class Plugin : BaseUnityPlugin
         player.steps = blueprint.mo_animationSteps ?? new List<MO_Animation>();
         player.options = blueprint.mo_animationOptions;
 
+        player.phaseSeed = PhaseSeed(blueprint);
+
         var action = (MO_TriggerAction)blueprint.mo_animationOptions.triggerAction;
         // Stop-mode targets run from load so the trigger has something to halt; Restart-mode
         // targets stay dormant until triggered.
         player.waitForTrigger = waitForTrigger && action != MO_TriggerAction.Stop;
+    }
+
+    // Per-object seed for the randomized phase offset. It must be identical on every client that
+    // loads this track, or a spectator's objects can never match the pilot's.
+    //
+    // instanceID is the natural key: the editor assigns it once (LastInstanceId + 1) and it is
+    // serialized into the track XML, so it survives a save/load round-trip identically everywhere.
+    // The authored position is the fallback for anything that never got one (0 is the unset value —
+    // real ids start at 1). Position is quantized to 1mm first: it is stored as a float and a track
+    // file round-trips through text, so hashing the raw bits would risk two clients disagreeing on
+    // the last digit and desyncing the very objects this is meant to align.
+    internal static int PhaseSeed(TrackBlueprint blueprint)
+    {
+        if (blueprint.instanceID != 0)
+            return blueprint.instanceID;
+
+        var pos = blueprint.position;
+        var x = Mathf.RoundToInt(pos.x * 1000f);
+        var y = Mathf.RoundToInt(pos.y * 1000f);
+        var z = Mathf.RoundToInt(pos.z * 1000f);
+        return unchecked((x * 73856093) ^ (y * 19349663) ^ (z * 83492791));
     }
 
     private static bool AddTrigger(TrackBlueprint blueprint, Component flag)

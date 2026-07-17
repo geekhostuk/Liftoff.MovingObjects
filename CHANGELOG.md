@@ -19,6 +19,16 @@ upgrade.
 Planned and proposed work lives in [`ideas.md`](ideas.md) — a backlog grouped by system, each entry
 tagged with a status and effort estimate.
 
+### Changed
+- **"Randomize phase" is now the same scatter on every PC.** The random start delay was drawn from
+  a random number generator, so each player's game rolled its own — a field of objects looked
+  scattered, but *differently* scattered for everyone, and a spectator could never match the pilot.
+  The delay is now derived from the object's own identity in the track file, so every PC computes the
+  same value: still scattered, but the same scatter everywhere. Two visible differences, both
+  intended: the arrangement no longer re-rolls on each reset (it was previously a fresh roll every
+  time you reset), and a given object always gets the same delay. Existing tracks keep working and
+  need no re-save — the arrangement they show is simply a different (and now stable) one.
+
 ### Fixed
 - **Experimental spectator sync now re-syncs on the right event.** `[Experimental]
   SpectatorAnimationSync` watched the game log for the spectator camera attaching to a pilot. That
