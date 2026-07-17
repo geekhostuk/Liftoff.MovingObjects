@@ -4,6 +4,7 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
+using Liftoff.MovingObjects.Multiplayer;
 using Liftoff.MovingObjects.Player;
 using Liftoff.MovingObjects.Utils;
 using UnityEngine;
@@ -42,17 +43,11 @@ public sealed class Plugin : BaseUnityPlugin
 
     private Harmony _harmony;
 
-    // Experimental multiplayer spectator sync. When you spectate another pilot, your client never
-    // fires the local drone-reset events (FlightManager.onDroneReset*), so moving objects keep
-    // running from their own start time and drift out of sync with what the spectated pilot sees.
-    // Liftoff logs a line when the spectator camera (re)attaches to a pilot — on their reset, and
-    // when you switch spectate target — so we watch the main-thread log stream for that marker and
-    // re-run our own reset + re-inject to resync. Off by default: the marker text is version-
-    // specific, and this is best-effort (network latency can still cause brief clipping).
-    private const string SpectatorAttachMarker = "Attached spectator camera to";
+    // Experimental multiplayer spectator sync — implemented in Multiplayer/SpectatorSync.cs, which
+    // resyncs off the game's own RPCPlayerReset [PunRPC]. This used to watch the game log for
+    // "Attached spectator camera to"; that marker fires when the spectator camera attaches (i.e. on
+    // a target switch), not when the watched pilot resets, so it missed most resets.
     private static ConfigEntry<bool> _spectatorSyncEnabled;
-    private static float _lastSpectatorSyncTime = float.NegativeInfinity;
-    private const float SpectatorSyncDebounceSeconds = 0.5f;
 
     private void Awake()
     {
@@ -67,20 +62,16 @@ public sealed class Plugin : BaseUnityPlugin
         _spectatorSyncEnabled = Config.Bind(
             "Experimental", "SpectatorAnimationSync", false,
             "EXPERIMENTAL. When spectating another pilot in multiplayer, re-sync moving-object "
-            + "animations each time the spectated pilot resets (detected from the game log stream). "
-            + "Best-effort and Liftoff-version-specific; network latency can still cause brief "
-            + "clipping. Takes effect on the next game start.");
+            + "animations each time the spectated pilot resets. Best-effort; network latency can "
+            + "still cause brief clipping. Takes effect on the next game start.");
 
-        if (_spectatorSyncEnabled.Value)
-        {
-            // Subscribe to logMessageReceived, NOT ...Threaded: the non-threaded event is raised on
-            // the Unity main thread, so OnGameLogMessage can call the reset path (FindObjectsOfType,
-            // AddComponent, component enable/disable) directly with no cross-thread marshalling. The
-            // handler is static, so it keeps working even after this MonoBehaviour is torn down early
-            // (see OnDestroy) — we never depend on this component's Update running.
-            Application.logMessageReceived += OnGameLogMessage;
-            Log.LogInfo("Experimental spectator animation sync enabled");
-        }
+        try { SpectatorSync.Install(_harmony, _spectatorSyncEnabled.Value); }
+        catch (System.Exception ex) { Log.LogError($"SpectatorSync.Install failed: {ex}"); }
+
+        // TEMPORARY (JMT00084): investigation scaffolding, gated behind the same experimental flag.
+        // Logging only — see Multiplayer/SpectatorDiagnostics.cs. Remove once Stage 3 lands.
+        try { SpectatorDiagnostics.Install(_harmony, _spectatorSyncEnabled.Value); }
+        catch (System.Exception ex) { Log.LogError($"SpectatorDiagnostics.Install failed: {ex}"); }
 
         try
         {
@@ -338,27 +329,20 @@ public sealed class Plugin : BaseUnityPlugin
         // scene may run a different fixedDeltaTime than flight.
         Log.LogInfo(
             $"Physics step: fixedDeltaTime={Time.fixedDeltaTime:F5}s ({1f / Time.fixedDeltaTime:F1} Hz)");
+
+        // TEMPORARY (JMT00084). Re-ensured here rather than at Awake: the pump's GameObject can be
+        // torn down with the scene, and FlightManager.Start is the one callback guaranteed once per
+        // flight session. Both no-op unless the experimental flag is on.
+        SpectatorDiagnostics.EnsurePump();
+        SpectatorDiagnostics.LogPhotonState("flight start");
     }
 
-    // Main-thread log handler for experimental spectator sync (see the field comment in Awake).
-    // Liftoff emits SpectatorAttachMarker whenever the spectator camera (re)attaches to a pilot;
-    // that fires on the spectated pilot's reset and on a spectate-target switch — both cases where
-    // our moving objects need to be reset to line back up with the pilot's client.
-    private static void OnGameLogMessage(string condition, string stackTrace, LogType type)
-    {
-        if (condition == null ||
-            condition.IndexOf(SpectatorAttachMarker, System.StringComparison.Ordinal) < 0)
-            return;
+    // Spectator sync re-runs the local reset path when the pilot being watched resets (see
+    // Multiplayer/SpectatorSync.cs). Exposed rather than duplicated: both are idempotent and must
+    // stay behaviourally identical to a real local reset.
+    internal static void RunDroneResetStart() => OnDroneResetStart();
 
-        // A target switch can emit the marker several times in a burst; debounce so we resync once.
-        if (Time.unscaledTime - _lastSpectatorSyncTime < SpectatorSyncDebounceSeconds)
-            return;
-        _lastSpectatorSyncTime = Time.unscaledTime;
-
-        Log.LogInfo("Spectated pilot reset detected — re-syncing moving objects");
-        OnDroneResetStart();
-        OnDroneResetDone();
-    }
+    internal static void RunDroneResetDone() => OnDroneResetDone();
 
     private static void OnDroneResetStart()
     {

@@ -12,7 +12,7 @@ want to *fly* maps that use moving objects, you just need the mod installed (see
 > group scaling, one-row step buttons, faster scrolling, keeping arrow keys inside focused text fields,
 > the ghost-highlight cleanup, and clearing the gizmo after an F9 delete). As of v1.3.6 the old
 > hold-Alt arrow-key gizmo nudge has been removed — arrow keys just fly the editor camera now. The
-> experimental spectator sync is off by default and version-specific. Full history is in the
+> experimental spectator sync is off by default. Full history is in the
 > [changelog](CHANGELOG.md). Please report anything that misbehaves.
 
 ---
@@ -391,10 +391,17 @@ created on first run). Edit it with the game closed, or via a BepInEx config man
 
 | Section | Key | Default | What it does |
 |---------|-----|---------|--------------|
-| `[Experimental]` | `SpectatorAnimationSync` | `false` | When you **spectate another pilot** in multiplayer, your client never receives their drone-reset events, so moving objects drift out of sync with what the spectated pilot sees. Turning this on watches the game log for the spectator camera re-attaching to a pilot and re-syncs the moving objects on that pilot's reset (and when you switch spectate target). Best-effort and Liftoff-version-specific; network latency can still cause brief clipping. **Takes effect on the next game start.** |
+| `[Experimental]` | `SpectatorAnimationSync` | `false` | When you **spectate another pilot** in multiplayer, your client never receives their drone-reset events, so moving objects drift out of sync with what the spectated pilot sees. Turning this on re-syncs the moving objects each time the pilot you're watching resets. Best-effort; network latency can still cause brief clipping. **Takes effect on the next game start.** |
 
-Leave it off unless you're specifically chasing spectator desync — it depends on a log line that
-varies by Liftoff version.
+Leave it off unless you're specifically chasing spectator desync.
+
+Known limitations while it's on:
+
+- Objects re-align on the watched pilot's **reset**, so if you start spectating someone mid-lap they
+  stay out of step until their next reset.
+- Objects set to **wait for a trigger** still won't start for a spectator: the game gives a
+  spectated pilot's drone no collision shape on your PC, so it can't trip a trigger volume.
+- Objects using **randomised phase offset** won't match, because each PC rolls its own offset.
 
 ---
 

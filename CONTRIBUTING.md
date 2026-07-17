@@ -85,6 +85,11 @@ resolved by name, obfuscated parameter types accessed by position). The main Har
   chokepoints the undo/redo system captures through, so native and mod edits are both covered.
 - `TrackEditorGUI.Start`, `TrackEditorEditWindow.AtLeastOneItemAvailable`, and the item-spawn chain
   (`GetTrackItemPrefab` → `CreateNewTrackItem` → `AssignIDToTrackItem` → `ApplyBlueprint`).
+- `RPCPlayerReset` — the game's own `[PunRPC]`, hooked by the experimental spectator sync
+  (`Multiplayer/SpectatorSync.cs`). Its declaring types are obfuscated, so it's found by scanning the
+  assembly for the method name carrying `[PunRPC]` rather than named with `typeof`. **The name is
+  safer than it looks:** PUN resolves RPCs by method-name string at runtime, so renaming it would
+  break the game's own netcode.
 
 **When a game update breaks the mod, check the hook points first.** Run
 [`tools/PatchHelper audit`](#toolspatchhelper--the-il-inspection-toolkit) — it verifies each of these
@@ -182,9 +187,22 @@ when a game update moves things.
 | `PatchHelper <in.dll> <out.dll>` | **Patch mode** (default). Applies `Patcher.Patch` and writes the patched reference assembly. This is the build step. |
 | `PatchHelper explore <asm.dll> <keyword>...` | Dump every type whose full name contains any keyword — all fields (type + name), events, and methods (return type, name, parameters). A type/member browser. |
 | `PatchHelper audit <asm.dll>` | Verify the mod's hook points still exist. Checks a hardcoded list of `(Type, Method)` targets (e.g. `TrackEditorGUI.Start`, `PopupShareContent.ShareItem`, the drag handlers, `FlightManager.ResetDroneRoutine`, the `LevelInitSequence` methods) and prints resolved parameter types or `TYPE MISSING` / `METHOD MISSING`. **Run this first after a Liftoff update.** |
-| `PatchHelper search <asm.dll> <needle>` | Scan every method body for `Ldstr` string literals containing the needle (case-insensitive) and report `Type.Method` + the string. Finds where UI text / constants live. |
+| `PatchHelper search <asm.dll> <needle>` | Scan every method body for `Ldstr` string literals containing the needle (case-insensitive) and report `Type.Method` + the string. **Does not work on Liftoff's `Assembly-CSharp.dll` — see below.** |
 | `PatchHelper il <asm.dll> <TypeName> [MethodSubstr]` | Dump the full IL of matching methods (recurses nested types). |
 | `PatchHelper il <asm.dll> --scan <instrSubstr> [--full]` | Dump every method whose IL contains an instruction substring. |
+
+### The game's strings are encrypted — don't hunt for them offline
+
+`Assembly-CSharp.dll` doesn't just rename types, it **encrypts string literals**. Every surviving
+`ldstr` in the assembly is the empty string, and ~10,400 call sites decrypt byte arrays at runtime
+instead. So `search` returns nothing even for a needle like `drone`, and a raw byte scan of the DLL
+(UTF-8 or UTF-16) is equally blind. This is not a bug in `search` — it is unfixable against string
+encryption.
+
+The practical consequence: **a string's absence from the binary proves nothing.** This was confirmed
+the hard way — the spectator marker `"Attached spectator camera to <pilot>."` is invisible to every
+offline scan, yet fires at runtime. If you need to know what the game logs or compares against,
+capture it live from a real session (`BepInEx/LogOutput.log`); don't infer it from the assembly.
 
 ## File & config locations
 

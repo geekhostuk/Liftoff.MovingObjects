@@ -176,10 +176,11 @@ bodies have a single root `Rigidbody`, so the compound mass is already correct.
 The big one. A shared ball needs one authority (host) simulating and broadcasting pose, with other
 mod users applying it — everyone currently simulates their own copy, so the ball is solo-only today.
 Proposed authoring surface: a per-object/group **"sync between players"** checkbox on the physics tab.
-- **Effort**: large, and unlike everything else in this file it needs **transport we don't have** —
-  the mod has no networking layer, and the game's own netcode is in the obfuscated assembly. Worth
-  scoping against the existing always-on bot room / control backend (JesusMcTwos) before committing:
-  if that can relay pose, this becomes tractable; if not, it's a new networking subsystem.
+- **Effort**: large, but **transport is no longer the blocker** (this entry used to say it was). The
+  game's netcode is Photon PUN, and `PhotonUnityNetworking` / `PhotonRealtime` / `Photon3Unity3D` ship
+  **unobfuscated** — the mod now references them (see `build.ps1`), so `PhotonNetwork.RaiseEvent`,
+  room/player properties and the room-synchronised `PhotonNetwork.Time` clock are all directly
+  available. What remains is the hard part: authority, interpolation, and ownership handover.
 - **Open questions**: authority handover when the host leaves; interpolation/latency handling;
   what happens for non-mod users in the room; whether ownership transfers to whoever last hit the ball.
 - **Files**: `Patcher.cs`, `Player/PhysicsPlayer.cs`, `Plugin.cs`, plus a new transport layer.

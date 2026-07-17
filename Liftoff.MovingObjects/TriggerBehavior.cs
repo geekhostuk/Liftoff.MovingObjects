@@ -241,6 +241,11 @@ internal class TriggerBehavior : MonoBehaviour
 
     public void OnTriggerEnter(Collider other)
     {
+        // TEMPORARY (JMT00084). Deliberately ahead of the layer gate below: the open question is
+        // whether a spectated pilot's remote drone is on the "Drone" layer at all, so we must see
+        // the colliders the gate rejects. No-ops unless the experimental flag is on.
+        Multiplayer.SpectatorDiagnostics.ReportTriggerEnter(other, _droneLayer);
+
         if (other.gameObject.layer != _droneLayer || _triggered)
             return;
 

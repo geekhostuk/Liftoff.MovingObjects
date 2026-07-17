@@ -19,6 +19,17 @@ upgrade.
 Planned and proposed work lives in [`ideas.md`](ideas.md) — a backlog grouped by system, each entry
 tagged with a status and effort estimate.
 
+### Fixed
+- **Experimental spectator sync now re-syncs on the right event.** `[Experimental]
+  SpectatorAnimationSync` watched the game log for the spectator camera attaching to a pilot. That
+  line is real, but it fires when the camera *attaches* — i.e. when you switch who you're watching —
+  **not** when the pilot you're watching resets. Measured over one live session: 6 of those camera
+  attaches against 11 actual resets, including a run of 8 consecutive resets it ignored. The sync now
+  keys off the game's own multiplayer reset event instead, so every reset by the pilot you're
+  watching re-aligns the moving objects, and only that pilot's resets do. Still off by default and
+  still best-effort — latency can cause brief clipping, and objects only re-align on a reset, so
+  starting to spectate mid-lap stays out of step until the pilot next resets.
+
 ## [1.3.8] - 2026-07-13
 
 ### Added

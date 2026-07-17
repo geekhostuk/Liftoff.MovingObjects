@@ -83,6 +83,18 @@
       <HintPath>..\lib\UnityEngine.AudioModule.dll</HintPath>
 	  <Private>False</Private>
     </Reference>
+    <Reference Include="PhotonUnityNetworking">
+      <HintPath>..\lib\PhotonUnityNetworking.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="PhotonRealtime">
+      <HintPath>..\lib\PhotonRealtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Photon3Unity3D">
+      <HintPath>..\lib\Photon3Unity3D.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
