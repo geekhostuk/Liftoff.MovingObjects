@@ -68,7 +68,14 @@ $gameDlls = @(
     'UnityEngine.TextRenderingModule.dll',
     'UnityEngine.UIElementsModule.dll',
     'UnityEngine.ImageConversionModule.dll',
-    'UnityEngine.AudioModule.dll'
+    'UnityEngine.AudioModule.dll',
+
+    # Photon (PUN). The game's netcode is Photon and these ship unobfuscated, so we can bind to
+    # them directly — that's how the spectator sync reads the room-synchronised clock and
+    # identifies the player behind a [PunRPC] call.
+    'PhotonUnityNetworking.dll',
+    'PhotonRealtime.dll',
+    'Photon3Unity3D.dll'
 )
 
 Write-Host '==> Copying engine DLLs to ./lib' -ForegroundColor Cyan

@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Liftoff.MovingObjects.Utils;
 using UnityEngine;
 
 namespace Liftoff.MovingObjects.Player;
@@ -38,6 +39,12 @@ internal sealed class AnimationPlayer : MonoBehaviour
     public MO_AnimationOptions options;
     public List<MO_Animation> steps;
     public bool waitForTrigger;
+
+    // Seed for options.randomizePhase. Set from the blueprint's instanceID (see Plugin.AddAnimation),
+    // which is authored once and saved into the track file — so every client that loads the track
+    // derives the same offset for the same object, and a spectator's scattered field of objects
+    // matches the pilot's. Left 0 by the editor's scrub player, which never randomizes.
+    public int phaseSeed;
 
     // Continuous procedural motion (spinner / orbit) is driven every frame from Update() rather
     // than the keyframe coroutine, so endless rotation or a circular path doesn't require dozens
@@ -124,11 +131,15 @@ internal sealed class AnimationPlayer : MonoBehaviour
     // Route between the keyframe coroutine and continuous procedural motion, applying a one-time
     // phase offset first. The offset (optionally randomized within [0, phaseOffset]) desyncs a
     // field of identical objects so they don't all move in lockstep.
+    //
+    // The randomized offset is derived from the object's identity rather than drawn from an RNG:
+    // it must look scattered but be the *same* scatter on every client, or a spectator's objects
+    // could never line up with the pilot's no matter how well their resets are synchronised.
     private void StartMotion()
     {
         var delay = options.phaseOffset;
         if (options.randomizePhase && delay > 0f)
-            delay = Random.Range(0f, delay);
+            delay *= MoHash.Unit(phaseSeed);
 
         if (delay > 0f)
             _startDelayCoroutine = StartCoroutine(StartMotionAfter(delay));

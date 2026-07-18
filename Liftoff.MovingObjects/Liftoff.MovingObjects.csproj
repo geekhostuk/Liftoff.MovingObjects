@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>Liftoff.MovingObjects</AssemblyName>
     <Description></Description>
-    <Version>1.3.8</Version>
+    <Version>1.3.9</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <OutputPath>..\bin\$(Configuration)\BepInEx\plugins</OutputPath>
@@ -82,6 +82,18 @@
     <Reference Include="UnityEngine.AudioModule">
       <HintPath>..\lib\UnityEngine.AudioModule.dll</HintPath>
 	  <Private>False</Private>
+    </Reference>
+    <Reference Include="PhotonUnityNetworking">
+      <HintPath>..\lib\PhotonUnityNetworking.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="PhotonRealtime">
+      <HintPath>..\lib\PhotonRealtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Photon3Unity3D">
+      <HintPath>..\lib\Photon3Unity3D.dll</HintPath>
+      <Private>False</Private>
     </Reference>
   </ItemGroup>
 

@@ -53,12 +53,16 @@ runtime against the current game, and the v1.2.x–v1.3.x line adds the full mov
 If you're looking for the original project or want to file an issue against the design rather than the
 modernization, please go to [ps-hek/Liftoff.MovingObjects](https://github.com/ps-hek/Liftoff.MovingObjects).
 
-## What's new in 1.3.8
+## What's new in 1.3.9
 
-- **Undo / Redo in the track builder** — **Ctrl+Z** / **Ctrl+Y**, editor-wide (move, place, delete,
-  and every bulk action), for both the mod's tools and the game's native placement.
-- Recent releases also added author-set **Show-Text durations** and a **mod-version compatibility
-  gate** (1.3.7), and a run of editor fixes across the 1.3.x line.
+- **Editor performance fix** — the 1.3.8 undo/redo feature could hitch badly on large maps because it
+  scanned the whole scene on every edit. Object resolution is now cached, so editing stays smooth no
+  matter how many objects the map has.
+- **Multiplayer spectator sync is now on by default** — a spectated pilot's moving objects re-align
+  each time they reset, out of the box. Still a toggle (`[Multiplayer] SpectatorAnimationSync`).
+- Recent releases also added **Undo / Redo in the track builder** (**Ctrl+Z** / **Ctrl+Y**,
+  editor-wide) in 1.3.8, and author-set **Show-Text durations** plus a **mod-version compatibility
+  gate** in 1.3.7.
 
 See the **[full changelog](CHANGELOG.md)** for the complete release history.
 
@@ -99,7 +103,7 @@ If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder.
    (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.3.8.zip` from the
+2. Download `Liftoff.MovingObjects-1.3.9.zip` from the
    [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`

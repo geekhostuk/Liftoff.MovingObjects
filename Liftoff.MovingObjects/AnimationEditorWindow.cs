@@ -998,6 +998,9 @@ internal class AnimationEditorWindow : MonoBehaviour
         var player = _tempAnimationObject.AddComponent<AnimationPlayer>();
         player.steps = new List<MO_Animation>(_blueprint.mo_animationSteps);
         player.options = _blueprint.mo_animationOptions;
+        // Same seed the object will get in flight, so a randomized phase offset previews as the
+        // delay you'll actually fly, not a different roll.
+        player.phaseSeed = Plugin.PhaseSeed(_blueprint);
     }
 
     private void StopAnimation()
