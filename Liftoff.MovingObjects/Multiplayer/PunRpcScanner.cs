@@ -15,12 +15,12 @@ namespace Liftoff.MovingObjects.Multiplayer;
 // hooks used elsewhere in the mod.
 //
 // The scan walks every type in Assembly-CSharp (~5k), so the result is computed once and cached —
-// both SpectatorSync and SpectatorDiagnostics ask for it during Awake.
+// SpectatorSync asks for it during Awake.
 internal static class PunRpcScanner
 {
     private static List<MethodBase> _cache;
 
-    internal static IReadOnlyList<MethodBase> All()
+    private static IReadOnlyList<MethodBase> All()
     {
         return _cache ??= Scan().ToList();
     }

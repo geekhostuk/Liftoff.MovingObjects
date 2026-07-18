@@ -19,7 +19,23 @@ upgrade.
 Planned and proposed work lives in [`ideas.md`](ideas.md) — a backlog grouped by system, each entry
 tagged with a status and effort estimate.
 
+## [1.3.9] - 2026-07-18
+
+### Fixed
+- **Editor frame drops on large maps (v1.3.8 regression).** The new undo/redo system resolved every
+  tracked object by scanning the whole scene, and it did so once per object on every edit — so on a
+  large map each move, nudge, or delete triggered a burst of full-scene searches and the editor
+  hitched badly. Object resolution is now cached, so routine edits no longer scan the scene and the
+  editor stays smooth regardless of how many objects the map contains. No change to what undo/redo
+  does — only how fast it does it.
+
 ### Changed
+- **Multiplayer spectator sync is now on by default.** Re-syncing a spectated pilot's moving objects
+  used to be an opt-in experimental setting; it's now enabled out of the box, since it's the correct
+  behaviour when spectating. It remains a toggle — the config key moved to `[Multiplayer]
+  SpectatorAnimationSync` (default `true`) — so it can still be turned off if a session misbehaves.
+  It stays best-effort: latency can cause brief clipping, and objects only re-align on a reset, so
+  starting to spectate mid-lap stays out of step until the pilot next resets.
 - **"Randomize phase" is now the same scatter on every PC.** The random start delay was drawn from
   a random number generator, so each player's game rolled its own — a field of objects looked
   scattered, but *differently* scattered for everyone, and a spectator could never match the pilot.
@@ -28,17 +44,13 @@ tagged with a status and effort estimate.
   intended: the arrangement no longer re-rolls on each reset (it was previously a fresh roll every
   time you reset), and a given object always gets the same delay. Existing tracks keep working and
   need no re-save — the arrangement they show is simply a different (and now stable) one.
-
-### Fixed
-- **Experimental spectator sync now re-syncs on the right event.** `[Experimental]
-  SpectatorAnimationSync` watched the game log for the spectator camera attaching to a pilot. That
-  line is real, but it fires when the camera *attaches* — i.e. when you switch who you're watching —
-  **not** when the pilot you're watching resets. Measured over one live session: 6 of those camera
-  attaches against 11 actual resets, including a run of 8 consecutive resets it ignored. The sync now
-  keys off the game's own multiplayer reset event instead, so every reset by the pilot you're
-  watching re-aligns the moving objects, and only that pilot's resets do. Still off by default and
-  still best-effort — latency can cause brief clipping, and objects only re-align on a reset, so
-  starting to spectate mid-lap stays out of step until the pilot next resets.
+- **Spectator sync now re-syncs on the right event.** The sync previously watched the game log for the
+  spectator camera attaching to a pilot. That line is real, but it fires when the camera *attaches* —
+  i.e. when you switch who you're watching — **not** when the pilot you're watching resets. Measured
+  over one live session: 6 of those camera attaches against 11 actual resets, including a run of 8
+  consecutive resets it ignored. The sync now keys off the game's own multiplayer reset event instead,
+  so every reset by the pilot you're watching re-aligns the moving objects, and only that pilot's
+  resets do.
 
 ## [1.3.8] - 2026-07-13
 

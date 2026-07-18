@@ -4,15 +4,16 @@ This guide covers every feature of the mod and how to use it, for **track author
 want to *fly* maps that use moving objects, you just need the mod installed (see
 [Installation](#installation)) — everything below is for building.
 
-> **Status (v1.3.8).** This is the stable 1.3.x line: the core animation / physics / trigger paths and
+> **Status (v1.3.9).** This is the stable 1.3.x line: the core animation / physics / trigger paths and
 > the editor/item-spawn features (Select-all, Duplicate/Array/Copy-Paste/Mirror/Stamps, grouping,
 > sound-on-trigger, hazard-on-contact) are confirmed working in-game. Since v1.3.0 the line has added
+> an **editor performance fix** for large maps and **spectator sync on by default** (v1.3.9),
 > **editor-wide Undo / Redo** (v1.3.8), **author-set Show-Text durations** and a **mod-version
 > compatibility gate** (v1.3.7), and a run of editor fixes (v1.3.1–v1.3.6 — group highlighting, rigid
 > group scaling, one-row step buttons, faster scrolling, keeping arrow keys inside focused text fields,
 > the ghost-highlight cleanup, and clearing the gizmo after an F9 delete). As of v1.3.6 the old
-> hold-Alt arrow-key gizmo nudge has been removed — arrow keys just fly the editor camera now. The
-> experimental spectator sync is off by default. Full history is in the
+> hold-Alt arrow-key gizmo nudge has been removed — arrow keys just fly the editor camera now.
+> Multiplayer spectator sync is now **on by default**. Full history is in the
 > [changelog](CHANGELOG.md). Please report anything that misbehaves.
 
 ---
@@ -384,16 +385,16 @@ preview.
 
 ---
 
-## Experimental / config-file options
+## Config-file options
 
 The mod reads one setting from its BepInEx config file (`BepInEx/config/Liftoff.MovingObjects.cfg`,
 created on first run). Edit it with the game closed, or via a BepInEx config manager.
 
 | Section | Key | Default | What it does |
 |---------|-----|---------|--------------|
-| `[Experimental]` | `SpectatorAnimationSync` | `false` | When you **spectate another pilot** in multiplayer, your client never receives their drone-reset events, so moving objects drift out of sync with what the spectated pilot sees. Turning this on re-syncs the moving objects each time the pilot you're watching resets. Best-effort; network latency can still cause brief clipping. **Takes effect on the next game start.** |
+| `[Multiplayer]` | `SpectatorAnimationSync` | `true` | When you **spectate another pilot** in multiplayer, your client never receives their drone-reset events, so moving objects drift out of sync with what the spectated pilot sees. This re-syncs the moving objects each time the pilot you're watching resets. Best-effort; network latency can still cause brief clipping. Set to `false` to disable. **Takes effect on the next game start.** |
 
-Leave it off unless you're specifically chasing spectator desync.
+It's on by default; set it to `false` only if a session misbehaves.
 
 Known limitations while it's on:
 

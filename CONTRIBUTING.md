@@ -207,7 +207,7 @@ capture it live from a real session (`BepInEx/LogOutput.log`); don't infer it fr
 ## File & config locations
 
 - **BepInEx config**: `BepInEx/config/Liftoff.MovingObjects.cfg` (created on first run). One key:
-  `[Experimental] SpectatorAnimationSync` (default `false`).
+  `[Multiplayer] SpectatorAnimationSync` (default `true`).
 - **Stamps**: `<Liftoff>/mo_stamps/<name>.xml`, written by `Utils/StampIO.cs`. The file is a
   `<MO_Stamp>` root containing one `<item>` per `TrackBlueprint` (an `XmlSerializer` over a `StampSet`
   wrapper), **not** a bare blueprint.

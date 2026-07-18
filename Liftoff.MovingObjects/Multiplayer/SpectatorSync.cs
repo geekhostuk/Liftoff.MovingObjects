@@ -52,9 +52,9 @@ internal static class SpectatorSync
     // carries a Photon Player, and the UI row exposes a player object we can only reach reflectively.
     private static string _spectateTarget;
 
-    // Set once we know whether target identity is resolvable on this build; keeps the log to one line
-    // instead of one per reset.
-    private static bool _loggedTargetResolution;
+    // Keep the identity-resolution reporting to one line each instead of one per UI refresh.
+    private static bool _loggedResolutionSuccess;
+    private static bool _loggedResolutionFailure;
 
     private static SyncPump _pump;
 
@@ -221,30 +221,192 @@ internal static class SpectatorSync
         return null;
     }
 
-    // The UI row's player is the game's own obfuscated player type, so it can't be named — but if it
-    // wraps a Photon Player we can read a nickname off it and correlate with the RPC.
+    // Identify which pilot a UI row represents. The row's player is the game's own obfuscated type,
+    // so no member of it can be named in source. Two strategies, in order of reliability:
+    //
+    //   1. Find a Photon.Realtime.Player on it (readable type, so findable by type regardless of what
+    //      the member is called) and read NickName off it.
+    //   2. Failing that, read every string it exposes and match against the nicknames of the players
+    //      actually in the room. This deliberately doesn't guess *which* member holds the name — it
+    //      compares candidates against a known answer set, so it can't be fooled by the obfuscated
+    //      member names and doesn't care if they change between game versions.
     //
     // SetSpectating fires once per player row on every UI refresh (measured 38 calls in one short
-    // session), so the member lookup is resolved once and cached rather than re-reflected per call.
+    // session), so member lookups are cached rather than re-reflected per call.
     private static string ResolveRowNickname(object indicator)
     {
         if (indicator == null)
             return null;
 
         var wrapper = GetRowPlayer(indicator);
-        var rowPlayer = ReflectionUtils.GetFieldValueByType<PhotonPlayer>(wrapper)
-                        ?? ReflectionUtils.GetFieldValueByType<PhotonPlayer>(indicator);
 
-        if (!_loggedTargetResolution)
+        // The UI calls this on rows that aren't populated yet (the first call of a session has no
+        // player object at all). That's not a resolution failure — reporting it as one would latch a
+        // "couldn't resolve" verdict before we ever had something to read.
+        if (wrapper == null)
+            return null;
+
+        var rowPlayer = FindPhotonPlayer(wrapper) ?? FindPhotonPlayer(indicator);
+        if (rowPlayer != null)
         {
-            _loggedTargetResolution = true;
-            Log.LogInfo(rowPlayer != null
-                ? "Spectate-target identity resolved — resync is filtered to the watched pilot"
-                : "Could not resolve spectate-target identity on this build — falling back to "
-                  + "resyncing on any remote pilot's reset while spectating");
+            LogSuccessOnce("via its Photon player");
+            return rowPlayer.NickName;
         }
 
-        return rowPlayer?.NickName;
+        var matched = MatchRoomNickname(wrapper) ?? MatchRoomNickname(indicator);
+        if (matched != null)
+        {
+            LogSuccessOnce("by matching the room's nicknames");
+            return matched;
+        }
+
+        // Only a genuine failure: we had a player object in a live room and still couldn't name it.
+        if (!_loggedResolutionFailure && PhotonNetwork.InRoom)
+        {
+            _loggedResolutionFailure = true;
+            Log.LogInfo("Could not resolve spectate-target identity on this build — falling back to "
+                        + "resyncing on any remote pilot's reset while spectating");
+            DumpRowMembers(wrapper);
+        }
+
+        return null;
+    }
+
+    // Success and failure are tracked separately and on purpose: an early row can fail before a later
+    // one succeeds, and a single shared latch would suppress the success message — leaving the log
+    // claiming identity was unresolved while the sync was in fact filtering correctly.
+    private static void LogSuccessOnce(string how)
+    {
+        if (_loggedResolutionSuccess)
+            return;
+        _loggedResolutionSuccess = true;
+        Log.LogInfo($"Spectate-target identity resolved {how} — resync is filtered to the watched pilot");
+    }
+
+    // A Photon Player held anywhere on the object, as a field or behind a property. Properties are
+    // included because the game's own accessors are often the only public route in; each getter is
+    // called defensively since an arbitrary property can throw.
+    private static PhotonPlayer FindPhotonPlayer(object obj)
+    {
+        if (obj == null)
+            return null;
+
+        if (obj is PhotonPlayer direct)
+            return direct;
+
+        var field = ReflectionUtils.GetFieldValueByType<PhotonPlayer>(obj);
+        if (field != null)
+            return field;
+
+        foreach (var prop in obj.GetType()
+                     .GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+        {
+            if (!typeof(PhotonPlayer).IsAssignableFrom(prop.PropertyType) || prop.GetIndexParameters().Length > 0)
+                continue;
+
+            try
+            {
+                if (prop.GetValue(obj) is PhotonPlayer p)
+                    return p;
+            }
+            catch
+            {
+                // An obfuscated getter may throw when the object isn't in the state it expects.
+            }
+        }
+
+        return null;
+    }
+
+    // Compare every string the object exposes against the nicknames of players in the room, and
+    // return the one that matches. Only accepts an unambiguous single match: if two pilots somehow
+    // share a nickname we'd rather fall back than silently filter to the wrong one.
+    private static string MatchRoomNickname(object obj)
+    {
+        if (obj == null)
+            return null;
+
+        List<string> roomNicks;
+        try
+        {
+            if (!PhotonNetwork.InRoom || PhotonNetwork.CurrentRoom?.Players == null)
+                return null;
+
+            roomNicks = PhotonNetwork.CurrentRoom.Players.Values
+                .Select(p => p.NickName)
+                .Where(n => !string.IsNullOrEmpty(n))
+                .ToList();
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (roomNicks.Count == 0)
+            return null;
+
+        foreach (var candidate in StringMembers(obj))
+        {
+            var hits = roomNicks.Where(n => string.Equals(n, candidate, StringComparison.Ordinal)).ToList();
+            if (hits.Count == 1)
+                return hits[0];
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> StringMembers(object obj)
+    {
+        var type = obj.GetType();
+
+        foreach (var f in type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+        {
+            if (f.FieldType != typeof(string))
+                continue;
+
+            string value = null;
+            try { value = (string)f.GetValue(obj); }
+            catch { /* unreadable field */ }
+            if (!string.IsNullOrEmpty(value))
+                yield return value;
+        }
+
+        foreach (var p in type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+        {
+            if (p.PropertyType != typeof(string) || p.GetIndexParameters().Length > 0)
+                continue;
+
+            string value = null;
+            try { value = (string)p.GetValue(obj); }
+            catch { /* getter threw */ }
+            if (!string.IsNullOrEmpty(value))
+                yield return value;
+        }
+    }
+
+    // One-shot, only when both strategies failed: describe what the row's player actually offers, so
+    // the next session's log says how to bind to it instead of guessing again.
+    private static void DumpRowMembers(object wrapper)
+    {
+        if (wrapper == null)
+        {
+            Log.LogInfo("  (the row exposes no player object at all)");
+            return;
+        }
+
+        try
+        {
+            var type = wrapper.GetType();
+            Log.LogInfo($"  row player type has {type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).Length} fields:");
+            foreach (var f in type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+                Log.LogInfo($"    field {f.FieldType.Name} (name obfuscated: {f.Name.Length} chars)");
+            foreach (var p in type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+                Log.LogInfo($"    prop  {p.PropertyType.Name} (name obfuscated: {p.Name.Length} chars)");
+        }
+        catch (Exception ex)
+        {
+            Log.LogWarning($"  member dump failed: {ex.Message}");
+        }
     }
 
     private static bool _rowPlayerLookupResolved;

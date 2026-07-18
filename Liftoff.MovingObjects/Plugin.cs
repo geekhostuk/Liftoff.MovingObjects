@@ -43,10 +43,10 @@ public sealed class Plugin : BaseUnityPlugin
 
     private Harmony _harmony;
 
-    // Experimental multiplayer spectator sync — implemented in Multiplayer/SpectatorSync.cs, which
-    // resyncs off the game's own RPCPlayerReset [PunRPC]. This used to watch the game log for
-    // "Attached spectator camera to"; that marker fires when the spectator camera attaches (i.e. on
-    // a target switch), not when the watched pilot resets, so it missed most resets.
+    // Multiplayer spectator sync — implemented in Multiplayer/SpectatorSync.cs, which resyncs off the
+    // game's own RPCPlayerReset [PunRPC]. This used to watch the game log for "Attached spectator
+    // camera to"; that marker fires when the spectator camera attaches (i.e. on a target switch), not
+    // when the watched pilot resets, so it missed most resets. On by default (see Config.Bind).
     private static ConfigEntry<bool> _spectatorSyncEnabled;
 
     private void Awake()
@@ -59,19 +59,19 @@ public sealed class Plugin : BaseUnityPlugin
         try { _harmony = Harmony.CreateAndPatchAll(typeof(Plugin)); }
         catch (System.Exception ex) { Log.LogError($"Harmony.CreateAndPatchAll failed: {ex}"); }
 
+        // On by default. The section/key differ from the old "[Experimental] SpectatorAnimationSync"
+        // deliberately: a previous build wrote that key as false into everyone's config, and merely
+        // flipping this default would leave those installs off — a fresh config path makes the new
+        // default apply to everyone. Still a toggle so it can be disabled if a session misbehaves.
         _spectatorSyncEnabled = Config.Bind(
-            "Experimental", "SpectatorAnimationSync", false,
-            "EXPERIMENTAL. When spectating another pilot in multiplayer, re-sync moving-object "
-            + "animations each time the spectated pilot resets. Best-effort; network latency can "
-            + "still cause brief clipping. Takes effect on the next game start.");
+            "Multiplayer", "SpectatorAnimationSync", true,
+            "When spectating another pilot in multiplayer, re-sync moving-object animations each time "
+            + "the spectated pilot resets, so their objects line up with what the pilot sees. "
+            + "Best-effort; network latency can still cause brief clipping. On by default; set to "
+            + "false to disable. Takes effect on the next game start.");
 
         try { SpectatorSync.Install(_harmony, _spectatorSyncEnabled.Value); }
         catch (System.Exception ex) { Log.LogError($"SpectatorSync.Install failed: {ex}"); }
-
-        // TEMPORARY (JMT00084): investigation scaffolding, gated behind the same experimental flag.
-        // Logging only — see Multiplayer/SpectatorDiagnostics.cs. Remove once Stage 3 lands.
-        try { SpectatorDiagnostics.Install(_harmony, _spectatorSyncEnabled.Value); }
-        catch (System.Exception ex) { Log.LogError($"SpectatorDiagnostics.Install failed: {ex}"); }
 
         try
         {
@@ -329,12 +329,6 @@ public sealed class Plugin : BaseUnityPlugin
         // scene may run a different fixedDeltaTime than flight.
         Log.LogInfo(
             $"Physics step: fixedDeltaTime={Time.fixedDeltaTime:F5}s ({1f / Time.fixedDeltaTime:F1} Hz)");
-
-        // TEMPORARY (JMT00084). Re-ensured here rather than at Awake: the pump's GameObject can be
-        // torn down with the scene, and FlightManager.Start is the one callback guaranteed once per
-        // flight session. Both no-op unless the experimental flag is on.
-        SpectatorDiagnostics.EnsurePump();
-        SpectatorDiagnostics.LogPhotonState("flight start");
     }
 
     // Spectator sync re-runs the local reset path when the pilot being watched resets (see
