@@ -19,6 +19,21 @@ upgrade.
 Planned and proposed work lives in [`ideas.md`](ideas.md) — a backlog grouped by system, each entry
 tagged with a status and effort estimate.
 
+## [1.3.10] - 2026-07-20
+
+### Fixed
+- **Group moves still stuttered on large maps.** The v1.3.9 fix cured the severe case, but on bigger
+  tracks the stutter crept back while slowly dragging a group. v1.3.9 cached the undo system's
+  *id resolution*, but the *move-capture* side was left doing a full-scene search (every track item,
+  seven object types) each time a move began — and because a move is committed after only a couple of
+  idle frames, a slow drag with little pauses, or a run of numeric-field nudges, restarted the move
+  (and re-ran the search) over and over. The cost grew with the total number of objects on the map,
+  which is why it only showed up on bigger tracks. That scan is now cached and refreshed only when
+  something is actually added or removed, so moving a group costs the same whether the map holds five
+  objects or five hundred. Two smaller editor costs were tidied up in the same pass: the per-object
+  lookup used inside those scans is now cached, and the transform panel no longer searches the scene
+  for the move gizmo on every single frame. Editor-only — no change to how any track plays.
+
 ## [1.3.9] - 2026-07-18
 
 ### Fixed

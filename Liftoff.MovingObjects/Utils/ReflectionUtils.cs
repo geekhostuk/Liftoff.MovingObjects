@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
@@ -6,6 +7,12 @@ namespace Liftoff.MovingObjects.Utils;
 
 internal static class ReflectionUtils
 {
+    // GetPrivateFieldValueByType is called once per flag inside every FindAllFlags scan, and until now
+    // re-ran GetProperties + LINQ on every call. Cache the resolved PropertyInfo per (object type, T)
+    // so the per-flag read is a dictionary lookup + GetValue. A null entry means "resolved, but no such
+    // property" — kept out of the cache so the exceptional not-found path (which throws) isn't cached.
+    private static readonly Dictionary<(Type, Type), PropertyInfo> _propCache = new();
+
     public static T GetPrivateFieldValue<T>(object obj, string name)
     {
         var field = obj.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic) ??
@@ -40,15 +47,25 @@ internal static class ReflectionUtils
 
     public static T GetPrivateFieldValueByType<T>(object obj)
     {
-        var typ = obj.GetType();
-        while (typ != null)
+        var key = (obj.GetType(), typeof(T));
+        if (_propCache.TryGetValue(key, out var cached))
+            return (T)cached.GetValue(obj);
+
+        // Walk the hierarchy one level at a time (DeclaredOnly), so SingleOrDefault's "exactly one of
+        // this type at this level" contract holds per level rather than being re-evaluated against the
+        // full flattened set on every iteration. (The old code queried obj.GetType() inside the loop
+        // instead of the walking `typ`, so the base-type walk was a no-op that re-checked the leaf.)
+        for (var typ = obj.GetType(); typ != null; typ = typ.BaseType)
         {
-            var field = obj.GetType()
-                .GetProperties(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)
+            var property = typ
+                .GetProperties(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance
+                               | BindingFlags.DeclaredOnly)
                 .SingleOrDefault(info => info.PropertyType == typeof(T));
-            if (field != null)
-                return (T)field.GetValue(obj);
-            typ = typ.BaseType;
+            if (property != null)
+            {
+                _propCache[key] = property;
+                return (T)property.GetValue(obj);
+            }
         }
 
         throw new Exception($"Field of type {typeof(T)} not found");

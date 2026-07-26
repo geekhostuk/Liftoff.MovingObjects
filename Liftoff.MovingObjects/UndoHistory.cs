@@ -279,6 +279,7 @@ internal static class UndoHistory
         _suppressDepth = 0;
         _loadWindowFrames = LoadWindowFrameBudget;
         UndoId.Clear();
+        EditorUtils.InvalidateFlagsCache();
     }
 
     // ---- internals --------------------------------------------------------------------------
