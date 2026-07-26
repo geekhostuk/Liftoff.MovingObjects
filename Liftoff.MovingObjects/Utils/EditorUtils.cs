@@ -20,11 +20,53 @@ internal class EditorUtils
         typeof(TrackItemFlexibleCheckpointTrigger),
     };
 
+    // Cache of every track-item flag in the scene. FindAllFlags does 7 whole-scene FindObjectsOfType
+    // sweeps, and it's called on the group-move capture path once per move gesture — a slow drag with
+    // micro-pauses restarts the gesture (and re-sweeps) repeatedly, so the cost scaled with total
+    // object count and stuttered on large maps even for a small group (Honk, post-v1.3.9). v1.3.9
+    // cached UndoId.Resolve but left this scan uncached; this is its counterpart.
+    //
+    // Invalidation is lazy (mark-dirty only) and event-driven: the two edit chokepoints
+    // (TrackEditor.AssignIDToTrackItem add / RemoveTrackItem remove, patched in Plugin) and a new
+    // editor session (UndoHistory.ResetForNewSession) call InvalidateFlagsCache. Every real add/remove
+    // — native placement, mod spawn (paste/mirror/array/duplicate/undo-respawn all route through
+    // ItemSpawner.SpawnFromBlueprint → AssignIDToTrackItem), native erase, and mod delete/despawn
+    // (ItemSpawner.RemoveItem → RemoveTrackItem) — funnels through one of those, so the cache can't go
+    // stale for a real track item. Animation-preview temp clones (AnimationEditorWindow) are the one
+    // path that spawns TrackItem components without the chokepoint; they're covered by the read-time
+    // null filter below (they never enter the cache, and if a rebuild ever captured one, destroying it
+    // makes it compare == null and drop out).
+    private static List<Component> _flagsCache;
+    private static bool _flagsDirty = true;
+
+    // Mark the flag cache stale. O(1) — the actual rescan is deferred to the next FindAllFlags call.
+    public static void InvalidateFlagsCache()
+    {
+        _flagsDirty = true;
+    }
+
     public static List<Component> FindAllFlags()
     {
-        var flags = new List<Component>();
-        foreach (var type in TrackItemTypes)
-            flags.AddRange(Object.FindObjectsOfType(type).OfType<Component>());
+        if (_flagsDirty || _flagsCache == null)
+        {
+            _flagsCache = new List<Component>();
+            foreach (var type in TrackItemTypes)
+                _flagsCache.AddRange(Object.FindObjectsOfType(type).OfType<Component>());
+            _flagsDirty = false;
+        }
+
+        // Hand back a fresh copy (callers iterate while indirectly spawning/removing) and drop any
+        // entry that's since been destroyed (Unity's overloaded == null). If we dropped one, the master
+        // list held a dead reference, so mark dirty to rebuild cleanly next time.
+        var flags = new List<Component>(_flagsCache.Count);
+        foreach (var flag in _flagsCache)
+        {
+            if (flag != null)
+                flags.Add(flag);
+            else
+                _flagsDirty = true;
+        }
+
         return flags;
     }
 

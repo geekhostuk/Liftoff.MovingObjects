@@ -23,6 +23,17 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
     private IDisposable _fakeGroupContext;
 
+    // Cached TrackEditorGizmo. RefreshTransformFields reads it every frame; GameObject.Find is an
+    // O(scene) name lookup, so on large maps that per-frame Find added to the editing hitch. The Unity
+    // null-check re-finds if the gizmo is ever destroyed/recreated; a persistent gizmo moved per
+    // selection keeps the cached ref valid. Static so the static SetGizmo/GizmoPosition helpers share
+    // it (there is only ever one editor window; a stale ref from a prior session compares == null and
+    // re-finds).
+    private static GameObject _cachedGizmo;
+
+    private static GameObject GetGizmo() =>
+        _cachedGizmo != null ? _cachedGizmo : _cachedGizmo = GameObject.Find("TrackEditorGizmo");
+
     private VisualElement _root => _uiDocument.rootVisualElement;
     private ItemInfo _selectedItem;
 
@@ -285,7 +296,7 @@ internal class PlacementUtilsWindow : MonoBehaviour
 
     private static Vector3 GizmoPosition()
     {
-        var gizmo = GameObject.Find("TrackEditorGizmo");
+        var gizmo = GetGizmo();
         return gizmo != null ? gizmo.transform.position : Vector3.zero;
     }
 
@@ -571,7 +582,7 @@ internal class PlacementUtilsWindow : MonoBehaviour
     {
         // Numeric-field moves are captured by UndoHistory.WatchSelection (which polls the selected
         // item's transform each frame), so no explicit hook is needed here.
-        var gizmo = GameObject.Find("TrackEditorGizmo");
+        var gizmo = GetGizmo();
         if (gizmo != null)
             apply(gizmo.transform);
     }
@@ -582,7 +593,7 @@ internal class PlacementUtilsWindow : MonoBehaviour
     {
         if (_posXField == null)
             return;
-        var gizmo = GameObject.Find("TrackEditorGizmo");
+        var gizmo = GetGizmo();
         if (gizmo == null)
             return;
 

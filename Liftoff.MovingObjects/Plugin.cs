@@ -260,6 +260,7 @@ public sealed class Plugin : BaseUnityPlugin
     [HarmonyPatch(typeof(TrackEditor), "AssignIDToTrackItem")]
     private static void OnTrackItemAssignedId(Component __0)
     {
+        EditorUtils.InvalidateFlagsCache();
         try { UndoHistory.NotifyAdded(__0); }
         catch (System.Exception ex) { Log.LogWarning($"Undo add-capture failed: {ex.Message}"); }
     }
@@ -271,6 +272,7 @@ public sealed class Plugin : BaseUnityPlugin
     [HarmonyPatch(typeof(TrackEditor), "RemoveTrackItem")]
     private static void OnTrackItemRemoving(Component __0)
     {
+        EditorUtils.InvalidateFlagsCache();
         try { UndoHistory.NotifyRemoving(__0); }
         catch (System.Exception ex) { Log.LogWarning($"Undo remove-capture failed: {ex.Message}"); }
     }
