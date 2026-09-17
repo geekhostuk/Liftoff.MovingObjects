@@ -366,3 +366,6 @@ FodyWeavers.xsd
 lib/
 # Packaged release archives (build artifacts)
 *.zip
+
+# Release packages from scripts/release.sh
+dist/
