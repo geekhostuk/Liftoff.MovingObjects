@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>Liftoff.MovingObjects</AssemblyName>
     <Description></Description>
-    <Version>1.3.10</Version>
+    <Version>1.3.11</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <OutputPath>..\bin\$(Configuration)\BepInEx\plugins</OutputPath>
@@ -18,6 +18,23 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <DebugType>none</DebugType>
   </PropertyGroup>
+
+  <!--
+    Race: the race-only build. It flies Moving Objects tracks but has no track editor, so pilots and
+    room hosts get the smaller plugin. Same assembly name, GUID and patcher as the full build: it
+    replaces it, and the two must never be installed together.
+  -->
+  <PropertyGroup Condition="'$(Configuration)'=='Race'">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <DefineConstants>$(DefineConstants);MO_RACE</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(Configuration)'=='Race'">
+    <Compile Remove="Plugin.Editor.cs;AnimationEditorWindow.cs;PlacementUtilsWindow.cs;UndoHistory.cs;PathPreview.cs;TriggerLinkPreview.cs;Shared.cs;UI.Designer.cs" />
+    <Compile Remove="Utils/ItemSpawner.cs;Utils/FakeGroup.cs;Utils/GuiUtils.cs;Utils/MoUndoId.cs;Utils/StampIO.cs;Utils/CloneUtils.cs;Utils/GridUtils.cs" />
+    <EmbeddedResource Remove="UI.resx" />
+  </ItemGroup>
   
   <PropertyGroup>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
@@ -71,7 +88,7 @@
       <HintPath>..\lib\UnityEngine.TextRenderingModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="UnityEngine.UIElementsModule">
+    <Reference Include="UnityEngine.UIElementsModule" Condition="'$(Configuration)'!='Race'">
       <HintPath>..\lib\UnityEngine.UIElementsModule.dll</HintPath>
 	  <Private>False</Private>
     </Reference>

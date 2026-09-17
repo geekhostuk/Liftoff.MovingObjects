@@ -19,6 +19,21 @@ upgrade.
 Planned and proposed work lives in [`ideas.md`](ideas.md) — a backlog grouped by system, each entry
 tagged with a status and effort estimate.
 
+## [1.3.11] - 2026-09-17
+
+### Added
+- **A race-only build.** Each release now also ships `Liftoff.MovingObjects-Race-<version>.zip`: the
+  same mod with everything a map needs in flight (animation, physics, triggers, teleports, spectator
+  sync) but without the track editor, at about a fifth of the size. It's for pilots and room hosts
+  who only fly modded maps; map builders keep using the full zip. Install one or the other, not
+  both. Maps play identically on either. [JMT FPV's Liftoff Control](https://jmtfpv.com) installs
+  the race build.
+
+### Fixed
+- **Moving objects could stand still after changing track.** The object scan cached in 1.3.10 was
+  only refreshed by editor edits, so a track loaded for flight could be read from a stale scan. Flight
+  now rescans the track on every reset, as it did before 1.3.10.
+
 ## [1.3.10] - 2026-07-20
 
 ### Fixed
