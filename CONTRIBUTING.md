@@ -31,7 +31,13 @@ build.ps1                          # the build entry point
 
 - **Plugin** (`Liftoff.MovingObjects`, `netstandard2.1`) — the runtime mod BepInEx loads. It reads
   the `mo_*` metadata on track items and attaches the players/behaviours that drive motion at flight
-  time, and it adds the editor windows. Entry point: `Plugin.cs`.
+  time, and it adds the editor windows. Entry point: `Plugin.cs` (the flying half) and
+  `Plugin.Editor.cs` (the editor's windows, asset bundle and Harmony patches).
+- **Race build** (`-c Race`, defines `MO_RACE`) — the same plugin without the track editor. The
+  csproj leaves out `Plugin.Editor.cs`, the editor windows, undo, the placement/stamp/clone/grid
+  helpers and the embedded UI bundle. **Keep flying code out of those files, and editor types out of
+  everything else**, or the race build stops compiling (or worse, stops animating). Both builds share
+  the GUID, file name and patcher, so they replace each other and are never installed together.
 - **Patcher** (`Liftoff.MovingObjects.Patcher`, `net35`, Mono.Cecil 0.10) — a BepInEx *preloader
   patcher*. At game-load time it Cecil-injects the serializable `MO_*` types and the `mo_*` fields
   into `Assembly-CSharp.dll` so the mod's data round-trips through the game's own `TrackBlueprint`
@@ -70,6 +76,21 @@ The script:
    ships with. This step makes those types available at compile time too.
 4. Builds `Liftoff.MovingObjects` (the plugin).
 5. With `-Deploy`, copies both DLLs into `<LiftoffPath>/BepInEx/{plugins,patchers}`.
+
+### Releasing
+
+1. Bump `<Version>` in `Liftoff.MovingObjects/Liftoff.MovingObjects.csproj` and add the
+   `CHANGELOG.md` section.
+2. Commit, tag `v<version>`, push both, and check out the tag.
+3. `scripts/release.sh --publish` (Linux, with Liftoff installed; `LIFTOFF_DIR` overrides the path).
+   It builds the patcher, the full plugin and the race plugin, packages
+   `Liftoff.MovingObjects-<version>.zip` and `Liftoff.MovingObjects-Race-<version>.zip`, then:
+   - creates the GitHub release with both zips (`gh` must be signed in), and
+   - publishes the race zip on the JMT site as product `movingobjects`, file
+     `Liftoff.MovingObjects-Race.zip`, which is where Liftoff Control installs it from. That needs a
+     JMT release key in `JMT_RELEASE_TOKEN` or the workspace `.env`.
+
+Without `--publish` it only builds and packages, so it's also the way to check both builds compile.
 
 ## How the mod hooks the game
 

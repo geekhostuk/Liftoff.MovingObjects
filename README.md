@@ -97,13 +97,27 @@ Multi-selection, groups, duplicate/array/mirror, multi-object copy/paste, reusab
 stamps, numeric transform entry, path/scrub previews, trigger-link gizmos, a trigger linter, and
 editor-wide undo/redo. See the [User Guide](USERGUIDE.md) for the full toolkit and key bindings.
 
+## Which build?
+
+From 1.3.11 every release comes in two builds:
+
+| Zip | For | |
+|---|---|---|
+| `Liftoff.MovingObjects-Race-<version>.zip` | **flying** modded maps | Everything a map needs in flight (animation, physics, triggers, spectator sync), without the track editor. About a fifth of the size. |
+| `Liftoff.MovingObjects-<version>.zip` | **building** maps | The race build plus the editor windows and authoring tools. |
+
+Install **one or the other, never both**. They are the same plugin (same file name, same BepInEx
+GUID, same patcher), so the second simply replaces the first. A map plays identically on either.
+[JMT FPV's Liftoff Control](https://jmtfpv.com) installs the race build for you.
+
 ## Install
 
 If you only want to play modded maps, this is all you need.
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) into your Liftoff folder.
    (Specifically, the 64-bit Mono build of BepInEx 5.4.x.)
-2. Download `Liftoff.MovingObjects-1.3.9.zip` from the
+2. Download `Liftoff.MovingObjects-Race-<version>.zip` (or the full
+   `Liftoff.MovingObjects-<version>.zip` to build maps) from the
    [latest release](https://github.com/geekhostuk/Liftoff.MovingObjects/releases/latest).
 3. Extract the zip into your Liftoff install folder (the one that contains `Liftoff.exe`). It writes:
    - `BepInEx/plugins/Liftoff.MovingObjects.dll`
@@ -119,9 +133,13 @@ Only needed if you're modifying the mod or rebuilding against a newer game versi
 **.NET SDK 10** and Liftoff installed via Steam:
 
 ```powershell
-./build.ps1            # build only
-./build.ps1 -Deploy    # build and copy into BepInEx
+./build.ps1                        # build only
+./build.ps1 -Deploy                # build and copy into BepInEx
+./build.ps1 -Configuration Race    # the race-only build
 ```
+
+On Linux, `scripts/release.sh` builds and packages both zips into `dist/v<version>/`, and
+`scripts/release.sh --publish` releases them (see [CONTRIBUTING.md](CONTRIBUTING.md#releasing)).
 
 See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the full build pipeline, the project architecture, the
 injected `MO_*` track schema, and the `tools/PatchHelper` IL-inspection toolkit.
