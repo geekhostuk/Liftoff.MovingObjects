@@ -85,7 +85,7 @@ overrides, drag, and mass. Grouped physics simulates as one compound body.
 ### Triggers & teleports
 Name-matched triggers let a checkpoint fire behaviour on pass: portal-style seamless teleports (with
 momentum), boost/brake gates, wind/force volumes, speed gates and routing, sound-on-trigger, and
-hazard-on-contact. A continuous-collision watchdog keeps triggers reliable at any speed.
+hazard-on-contact. A swept check of the drone's path keeps triggers reliable at any speed.
 
 ### Unlock blueprint objects
 Place objects from the Blueprint map on any map.

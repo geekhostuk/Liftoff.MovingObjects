@@ -23,7 +23,7 @@ straight through → exit straight; enter at an angle → exit deflected, carryi
 Files: `Patcher.cs`, `AnimationEditorWindow.cs`, `TriggerBehavior.cs`, `Plugin.cs`.
 
 ### ✅ High-speed trigger reliability (anti-tunneling) — v1.1.x
-Continuous-collision watchdog (`DroneContinuousCollision.cs`) plus swept-ray detection in
+Per-step drone path sampling (`DroneTrajectory.cs`) plus swept-ray detection in
 `TriggerBehavior.FixedUpdate`, so triggers fire at any speed. Every trigger idea depends on it.
 
 ### ✅ Trigger action: (re)start vs. stop — v1.1.2

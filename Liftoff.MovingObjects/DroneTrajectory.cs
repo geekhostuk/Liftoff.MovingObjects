@@ -3,22 +3,22 @@ using UnityEngine;
 
 namespace Liftoff.MovingObjects;
 
-// Attached to each drone rigidbody. Two jobs:
+// Attached to each drone rigidbody. Records the drone's position at the start of each physics
+// step. TriggerBehavior uses the previous->current segment to sweep-test against trigger volumes,
+// which catches fast passes that tunnel straight through a trigger between two physics steps and
+// would otherwise never raise OnTriggerEnter.
 //
-// 1. Keep the rigidbody in continuous (speculative) collision detection. A one-shot set
-//    is not enough: the game rebuilds/reconfigures the drone around reset time and resets
-//    collisionDetectionMode back to Discrete, so we re-assert it every FixedUpdate.
-//
-// 2. Record the drone's position at the start of each physics step. TriggerBehavior uses
-//    the previous->current segment to sweep-test against trigger volumes, which catches
-//    fast passes that tunnel straight through a trigger between two physics steps and would
-//    otherwise never raise OnTriggerEnter. Continuous detection alone is not reliable enough
-//    for trigger overlaps in this build, so the swept check is the actual guarantee.
-internal class DroneContinuousCollision : MonoBehaviour
+// It deliberately leaves the rigidbody's collisionDetectionMode alone. Up to 1.3.11 it forced
+// ContinuousSpeculative every step, on every track. Speculative contacts make "ghost collisions":
+// a fast drone bounces off colliders it only passes close to, such as a gate edge. It also changed
+// how the drone collides for everyone with the mod, even on tracks with nothing of ours in them.
+// Speculative detection doesn't raise trigger events for a pass it predicts, so the swept check
+// was always what kept triggers reliable.
+internal class DroneTrajectory : MonoBehaviour
 {
-    // All currently-enabled drone watchdogs. Maintained via OnEnable/OnDisable so it never
+    // All currently-enabled drone samplers. Maintained via OnEnable/OnDisable so it never
     // holds destroyed drones (the game spawns a fresh drone object on every reset).
-    internal static readonly List<DroneContinuousCollision> Active = new();
+    internal static readonly List<DroneTrajectory> Active = new();
 
     private Rigidbody _body;
 
@@ -60,9 +60,6 @@ internal class DroneContinuousCollision : MonoBehaviour
             if (_body == null)
                 return;
         }
-
-        if (_body.collisionDetectionMode != CollisionDetectionMode.ContinuousSpeculative)
-            _body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
 
         // Sample the trajectory once per physics step. Positions read in FixedUpdate are the
         // start-of-step positions (integration happens after all FixedUpdates), so consecutive
