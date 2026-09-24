@@ -253,23 +253,19 @@ public sealed partial class Plugin : BaseUnityPlugin
         foreach (var p in FindObjectsOfType<AnimationPlayer>()) p.enabled = true;
         foreach (var p in FindObjectsOfType<PhysicsPlayer>()) p.enabled = true;
 
-        EnableContinuousDroneCollision();
+        AttachDroneTrajectories();
     }
 
     // Triggers (see TriggerBehavior) are detected via OnTriggerEnter, which only fires
     // when the drone overlaps the trigger collider on some FixedUpdate step. A fast
     // enough drone can tunnel completely through the volume between two physics steps
-    // and the trigger (e.g. teleport) never fires. Continuous (speculative) collision
-    // detection makes the rigidbody sweep its path each step, so it can no longer pass
-    // through a trigger unseen.
-    //
-    // We can't just set collisionDetectionMode here: the game rebuilds/reconfigures the
-    // drone rigidbody around reset time and resets the mode back to Discrete, racing
-    // against (and usually beating) a one-shot set. So we attach a DroneContinuousCollision
-    // watchdog that re-asserts the mode every FixedUpdate. Attaching is idempotent (one
-    // component per drone object). Drones are identified the same way TriggerBehavior does:
-    // by the "Drone" layer plus an attached rigidbody.
-    private static void EnableContinuousDroneCollision()
+    // and the trigger (e.g. teleport) never fires. So each drone gets a DroneTrajectory
+    // that samples its path every step, and TriggerBehavior sweeps that path against its
+    // own colliders. Attaching is idempotent (one component per drone object); the game
+    // spawns a fresh drone on every reset, which is why this runs on every reset. Drones
+    // are identified the same way TriggerBehavior does: by the "Drone" layer plus an
+    // attached rigidbody.
+    private static void AttachDroneTrajectories()
     {
         var droneLayer = LayerMask.NameToLayer("Drone");
         if (droneLayer < 0)
@@ -285,11 +281,11 @@ public sealed partial class Plugin : BaseUnityPlugin
             if (body == null || !seen.Add(body))
                 continue;
 
-            if (body.GetComponent<DroneContinuousCollision>() != null)
+            if (body.GetComponent<DroneTrajectory>() != null)
                 continue;
 
-            body.gameObject.AddComponent<DroneContinuousCollision>();
-            Log.LogDebug($"Attached continuous collision watchdog to drone rigidbody '{body.name}'");
+            body.gameObject.AddComponent<DroneTrajectory>();
+            Log.LogDebug($"Attached trajectory sampler to drone rigidbody '{body.name}'");
         }
     }
 

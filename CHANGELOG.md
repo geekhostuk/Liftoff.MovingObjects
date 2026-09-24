@@ -19,6 +19,16 @@ upgrade.
 Planned and proposed work lives in [`ideas.md`](ideas.md) — a backlog grouped by system, each entry
 tagged with a status and effort estimate.
 
+## [1.3.12] - 2026-09-24
+
+### Fixed
+- **Drones hit "ghost" objects.** Since 1.2.0 the mod switched every drone to Unity's speculative
+  continuous collision detection, on every track, including tracks with no Moving Objects content.
+  Speculative contacts make a fast drone bounce off things it only passes close to, such as the edge
+  of a gate. The mod now leaves the game's own collision detection alone, so the drone collides
+  exactly as it does without the mod. Triggers still fire at any speed: the swept check of the
+  drone's path, which was already what caught fast passes, is unchanged.
+
 ## [1.3.11] - 2026-09-17
 
 ### Added

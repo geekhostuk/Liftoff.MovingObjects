@@ -291,7 +291,7 @@ internal class TriggerBehavior : MonoBehaviour
         if (_triggered || _colliders == null)
             return;
 
-        foreach (var drone in DroneContinuousCollision.Active)
+        foreach (var drone in DroneTrajectory.Active)
         {
             if (drone == null || drone.Body == null)
                 continue;
@@ -337,9 +337,9 @@ internal class TriggerBehavior : MonoBehaviour
         // The drone just jumped across the map. Collapse its swept-trajectory sample to the
         // destination so the next physics step doesn't read an entrance->exit segment and let the
         // anti-tunneling check re-fire a trigger (which would teleport/re-rotate it again).
-        var continuousCollision = _teleportDrone.GetComponent<DroneContinuousCollision>();
-        if (continuousCollision != null)
-            continuousCollision.ResetTrajectory();
+        var trajectory = _teleportDrone.GetComponent<DroneTrajectory>();
+        if (trajectory != null)
+            trajectory.ResetTrajectory();
 
         _teleportDrone = null;
     }
