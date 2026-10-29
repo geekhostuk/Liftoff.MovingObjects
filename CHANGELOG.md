@@ -19,6 +19,15 @@ upgrade.
 Planned and proposed work lives in [`ideas.md`](ideas.md) — a backlog grouped by system, each entry
 tagged with a status and effort estimate.
 
+## [1.3.13] - 2026-10-29
+
+### Fixed
+- **Works with the Liftoff update of 2026-10-28 (build 26274072).** The game's Photon now counts a
+  room's pilots as `int`, not `byte`, so 1.3.12 failed whenever another pilot reset
+  (`RPCPlayerReset handler failed: MissingMethodException: ... Room.get_PlayerCount()`), and moving
+  objects drifted from what the pilot you're spectating sees. Rebuilt against the new game; no code
+  changes. This build needs the updated game.
+
 ## [1.3.12] - 2026-09-24
 
 ### Fixed
