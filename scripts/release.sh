@@ -144,6 +144,38 @@ if [ -z "$token" ] && [ -f ../.env ]; then
 fi
 [ -n "$token" ] || { echo "!! no release key: make one at $site/admin, then set JMT_RELEASE_TOKEN or add jmt-release-token:<key> to ../.env" >&2; exit 1; }
 
+# Each file is also signed with JMT's offline release signing key, which the
+# JMT FPV app checks before installing (panel/src/releasesig.js says over what):
+# JMT_RELEASE_SIGNING_KEY, or ~/.jmtfpv-release-key/release-signing-key.pem.
+# Its passphrase is asked for once (or read from JMT_RELEASE_KEY_PASSPHRASE).
+# Without the key file this says so and uploads unsigned.
+signing_key="${JMT_RELEASE_SIGNING_KEY:-$HOME/.jmtfpv-release-key/release-signing-key.pem}"
+if [ -f "$signing_key" ]; then
+  if [ -z "${JMT_RELEASE_KEY_PASSPHRASE:-}" ]; then
+    read -rsp "    release signing key passphrase: " JMT_RELEASE_KEY_PASSPHRASE; echo
+  fi
+  export JMT_RELEASE_KEY_PASSPHRASE
+  # Tried once before anything is uploaded, so a wrong passphrase leaves no half-made draft.
+  openssl pkey -in "$signing_key" -passin env:JMT_RELEASE_KEY_PASSPHRASE -noout 2>/dev/null \
+    || { echo "!! could not open the release signing key at $signing_key: wrong passphrase?" >&2; exit 1; }
+else
+  signing_key=""
+  echo "    !! no release signing key: publishing UNSIGNED"
+fi
+
+# `&signature=...` for one file (product version name sha256), or nothing when unsigned.
+signature_param() {
+  [ -n "$signing_key" ] || return 0
+  local msg sig
+  msg=$(mktemp)
+  printf 'jmtfpv-release-v1\n%s\n%s\n%s\n%s' "$1" "$2" "$3" "$4" > "$msg"
+  sig=$(openssl pkeyutl -sign -inkey "$signing_key" -passin env:JMT_RELEASE_KEY_PASSPHRASE -rawin -in "$msg" | base64 | tr -d '\n')
+  rm -f "$msg"
+  [ ${#sig} -eq 88 ] || { echo "!! signing $3 failed" >&2; exit 1; }
+  sig=${sig//+/%2B}; sig=${sig//\//%2F}; sig=${sig//=/%3D}
+  printf '&signature=%s' "$sig"
+}
+
 # One request; the answer body on stdout, and a refusal is fatal with the site's reason.
 call() {
   local method=$1 path=$2; shift 2
@@ -184,9 +216,11 @@ else
 fi
 
 sum=$(awk -v f="$site_zip" '$2 == f { print $1 }' "$outdir/SHA256SUMS.txt")
-call PUT "/api/admin/releases/$id/files/$site_zip?sha256=$sum" \
+# Outside the call: a signing failure has to stop the script, not upload unsigned.
+sigq=$(signature_param movingobjects "$version" "$site_zip" "$sum") || exit 1
+call PUT "/api/admin/releases/$id/files/$site_zip?sha256=$sum$sigq" \
   -H 'content-type: application/octet-stream' --data-binary "@$outdir/$site_zip" >/dev/null
-echo "    uploaded $site_zip (checked)"
+echo "    uploaded $site_zip (checked${signing_key:+, signed})"
 
 call POST "/api/admin/releases/$id/publish" >/dev/null
 echo "==> published movingobjects $version; Liftoff Control installs the race build from the JMT site"
