@@ -148,7 +148,8 @@ fi
 # JMT FPV app checks before installing (panel/src/releasesig.js says over what):
 # JMT_RELEASE_SIGNING_KEY, or ~/.jmtfpv-release-key/release-signing-key.pem.
 # Its passphrase is asked for once (or read from JMT_RELEASE_KEY_PASSPHRASE).
-# Without the key file this says so and uploads unsigned.
+# Without the key file it stops: the app and the room servers refuse unsigned
+# releases (release B of the signing, JMT FPV 2.14.3).
 signing_key="${JMT_RELEASE_SIGNING_KEY:-$HOME/.jmtfpv-release-key/release-signing-key.pem}"
 if [ -f "$signing_key" ]; then
   if [ -z "${JMT_RELEASE_KEY_PASSPHRASE:-}" ]; then
@@ -159,8 +160,8 @@ if [ -f "$signing_key" ]; then
   openssl pkey -in "$signing_key" -passin env:JMT_RELEASE_KEY_PASSPHRASE -noout 2>/dev/null \
     || { echo "!! could not open the release signing key at $signing_key: wrong passphrase?" >&2; exit 1; }
 else
-  signing_key=""
-  echo "    !! no release signing key: publishing UNSIGNED"
+  echo "!! no release signing key at $signing_key: the apps refuse unsigned releases" >&2
+  exit 1
 fi
 
 # `&signature=...` for one file (product version name sha256), or nothing when unsigned.
